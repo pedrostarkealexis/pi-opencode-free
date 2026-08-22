@@ -2,7 +2,15 @@
 
 | # | Area | Verdict | Evidence |
 |---|------|---------|----------|
-| 1 | Header mutation vs keyless shim | PASS (static) | cache-opt only adds `session_id`/`x-client-request-id`/`x-session-affinity` via `setProviderHeaderIfMissing`; never touches `Authorization`/`User-Agent`/`x-opencode-*`. Order verified in Task 2. |
+| 1 | Header mutation vs keyless shim | PASS (verified) | cache-opt only adds `session_id`/`x-client-request-id`/`x-session-affinity` via `setProviderHeaderIfMissing`; never touches `Authorization`/`User-Agent`/`x-opencode-*`. Order verified in Task 2. |
+
+### 1b. Pipeline order (Task 2) — definitive
+
+Call chain: `sdk.js:180-199` passes `transformHeaders` (which emits `before_provider_headers`) into `modelRuntime.streamSimple`; `pi-ai/dist/models.js:394-399` `ModelsImpl.streamSimple` → `applyAuth` runs `options.transformHeaders(headers)` at :372-373, producing `requestOptions.headers`; **then** :398 calls `provider.streamSimple(requestModel, context, requestOptions)` — the extension-registered opencode-free shim (`src/index.ts:76-81`), which spreads `{ ...options.headers, Authorization: null }` last.
+
+Therefore the shim's `Authorization: null` always wins over anything a header hook sets; hook-added affinity headers (`session_id`, `x-client-request-id`, `x-session-affinity`, when compat opts in) survive and are additive.
+
+Hermetic proof: `/tmp/header-order.test.ts` (not committed) simulating the exact applyAuth→shim composition with an adversarial hook that injects `Authorization: "Bearer x"` → final header is `null`. 1 pass.
 | 2 | Payload rewrite vs Zen compat quirks | PASS (static) | Only ops on `openai-completions`: `prompt_cache_retention` strip + `prompt_cache_key` add. No rename of `max_tokens`, no touch of `reasoning_content`. Runtime tests: Task 3. |
 | 3 | Prompt/message mutation | RISK (benign) | `before_agent_start` rewrites system prompt (churn strip / skill compression / reorder). Content-rewriting but prompt-only; does not touch messages or `reasoning_content` replay. |
 | 4 | Usage/cost accounting | PASS (static) | Footer shows token/cache stats from usage records; cost defaults `{input:0,output:0,...}` when unknown — truthful for zero-cost models. |
