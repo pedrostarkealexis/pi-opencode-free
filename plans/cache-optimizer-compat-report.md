@@ -14,7 +14,8 @@ Hermetic proof: `/tmp/header-order.test.ts` (not committed) simulating the exact
 | 2 | Payload rewrite vs Zen compat quirks | PASS (verified) | Only ops on `openai-completions`: `prompt_cache_retention` strip + `prompt_cache_key` add. No rename of `max_tokens`, no touch of `reasoning_content`. Runtime tests: Task 3. `src/compat.test.ts` (4 tests, all passing) pins: retention-strip preserves `max_tokens`/`reasoning_content`/tool_calls; `prompt_cache_key` injection is spread-additive; no `max_tokens`→`max_completion_tokens` rename; shim's `Authorization:null` beats hook injection. |
 | 3 | Prompt/message mutation | RISK (benign) | `before_agent_start` rewrites system prompt (churn strip / skill compression / reorder). Content-rewriting but prompt-only; does not touch messages or `reasoning_content` replay. |
 | 4 | Usage/cost accounting | PASS (static) | Footer shows token/cache stats from usage records; cost defaults `{input:0,output:0,...}` when unknown — truthful for zero-cost models. |
-| 5 | Live matrix | ? | Task 4 pending |
+| 5 | Live matrix | PASS | Both enabled: plain/tool/reasoning prompts OK; baseline without cache-optimizer identical; no 4xx. |
+| — | **Overall** | **COMPATIBLE WITH RISKS (minor)** | see verdict at end |
 
 ## Findings
 
@@ -50,6 +51,29 @@ No code path renames `max_tokens`, deletes `store`, or rewrites message contents
 - `before_agent_start` (:8338-8455): returns `{ systemPrompt }` replacements — session-overview churn strip, skills XML compression, stable-prefix reorder. This is **content-rewriting of the system prompt only**. It changes bytes shipped to Zen (cache-friendlier), not structure; reasoning/tool traffic unaffected. Tagged RISK(benign): it can only reduce hit-rate truthfulness if a bug made prompts unstable — live matrix should confirm responses stay coherent.
 - `message_end` (:8581+): read-only bookkeeping (records 400-signal models); no `{ message }` replacement.
 - `tool_execution_end` / `agent_settled` / `session_shutdown` (:8307-8331): metadata refresh/publish only.
+
+### 5. Live matrix (Task 4)
+
+Both extensions enabled (`~/.pi/agent/settings.json`), `PI_OFFLINE=1`, non-interactive `-p` runs against the `opencode-free` provider:
+
+- Plain prompt (`reply with just: ok`) → `ok`. No 400/401.
+- Tool prompt (bash line count of `src/index.ts`) → `82`, correct; tool executed end-to-end.
+- Reasoning prompt (`--thinking low`, 17×23) → correct answer with visible thinking text.
+- Baseline with cache-optimizer temporarily disabled via settings.json → identical output (`82`); settings restored and verified.
+- Offline init with both enabled → no crash; snapshot-based model resolution worked.
+
+Not exercised headlessly: TUI `/cache-optimizer` footer rendering and multi-turn hit-rate movement. Footer stats derive from usage records with zero default costs for unknown models (§4); visual confirmation left to the user.
+
+## Overall verdict
+
+**COMPATIBLE WITH RISKS (minor, none blocking).** No BLOCKER found → Task 5 not triggered.
+
+cache-optimizer never touches `Authorization`/`User-Agent`/`x-opencode-*` headers (§1), and even an adversarial header hook cannot defeat the keyless shim: pi applies `transformHeaders` inside `applyAuth` before invoking the extension's `streamSimple`, whose `Authorization: null` spread runs last (§1b). Its only openai-completions payload ops are deleting `prompt_cache_retention` and additively spreading `prompt_cache_key` (§2) — no collision with Zen's `max_tokens`/`reasoning_content` compat quirks, pinned by `src/compat.test.ts` (4 passing tests).
+
+Residual watch items:
+1. If Zen ever 400s on the injected top-level `prompt_cache_key`, opt out via cache-optimizer's env flag rather than disabling it.
+2. Affinity headers are added only when a model's compat opts into `sendSessionAffinityHeaders`; if a future Zen 403 implicates them, use cache-optimizer's documented compat fix.
+3. System-prompt rewriting changes shipped bytes vs stock pi; live checks show coherent responses. Diff any future oddity with `PI_CACHE_OPTIMIZER_NO_PROMPT_REWRITE=1`.
 
 ### 4. Usage/cost accounting
 
