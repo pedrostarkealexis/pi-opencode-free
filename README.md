@@ -1,19 +1,17 @@
 # pi-opencode-free
 
-Zero-daemon, pure-passthrough native Pi extension that connects Pi directly to OpenCode Zen API with dynamic model discovery, stable KV-cache session hashing, real-time SSE streaming, and native tool calling.
+Native Pi extension connecting directly to OpenCode Zen API using Pi's built-in `openai-completions` engine with dynamic free model discovery, OpenCode client headers, and native streaming.
 
 ## Architecture
 
-A single in-process TypeScript extension that registers a provider in Pi using `ExtensionAPI.registerProvider`. It dynamically fetches free models on boot from OpenCode Zen, computes stable session-affinity headers in memory per conversation, and streams upstream SSE chunks directly into Pi's event stream — no intermediate proxy processes, no PID files, no prompt mutations.
+Registers a lightweight provider in Pi using `ExtensionAPI.registerProvider` configured with `api: "openai-completions"`. Free models are discovered on boot from OpenCode Zen, and OpenCode client headers (`x-opencode-client`, `x-opencode-project`, `User-Agent`) are injected to authorize free tier usage. All SSE streaming, reasoning parsing, and tool calls are handled natively by Pi.
 
 ## Structure
 
 | File | Purpose |
 |------|---------|
 | `src/discovery.ts` | `discoverModels()` — fetch `https://opencode.ai/zen/v1/models` with offline `FALLBACK_MODELS` |
-| `src/headers.ts` | `createSessionHeaders()` — deterministic `x-opencode-session` hash anchored on `messages[0..1]` |
-| `src/stream.ts` | `streamOpenCodeDirect()` — SSE engine emitting text, thinking (`reasoning_content`), and tool calls; `parseSseLine()` |
-| `src/index.ts` | Extension entrypoint registering the `opencode-direct` provider + `/opencode-sync` command |
+| `src/index.ts` | Extension entrypoint registering the native `opencode-direct` provider + `/opencode-sync` command |
 
 ## Usage
 
@@ -33,6 +31,6 @@ pi -e ./src/index.ts
 ## Key Properties
 
 - **Dynamic discovery:** model list refreshed from OpenCode Zen on boot, falling back to a hardcoded free list when offline.
-- **Stable session affinity:** `x-opencode-session` is derived deterministically from the conversation anchor, enabling KV-cache reuse; `x-opencode-request` is unique per request.
-- **Pure pass-through:** `messages`, `systemPrompt`, and `tools` are never mutated.
-- **Native streaming:** text, reasoning deltas, and tool calls are parsed and pushed into Pi's `AssistantMessageEventStream` in real time.
+- **OpenCode client headers:** `x-opencode-client`, `x-opencode-project`, and `User-Agent` are sent on every request to authorize free tier usage.
+- **Pure pass-through:** `messages`, `systemPrompt`, and `tools` are never mutated; SSE streaming, reasoning replay, tool accumulation, and cost calculations are delegated entirely to Pi's native engine.
+- **Zero custom transport:** no manual SSE parsing, session hashing, or buffers — the provider is fully declarative.
