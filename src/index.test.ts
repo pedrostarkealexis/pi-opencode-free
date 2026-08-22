@@ -93,3 +93,74 @@ test("cache-only refresh with no stored snapshot yields empty list", async () =>
     assert.deepEqual(restored, []);
   } finally { globalThis.fetch = originalFetch; }
 });
+
+test("network refresh discovers models and persists a stamped snapshot", async () => {
+  const originalFetch = globalThis.fetch;
+  const zenResponse = { ok: true, json: async () => ({ data: [{ id: "hy3-free", name: "Hy3" }] }) };
+  let published: any = null;
+  globalThis.fetch = (async () => zenResponse) as unknown as typeof fetch;
+  try {
+    let registeredConfig: any = null;
+    const fakePi = {
+      registerProvider(_id: string, config: any) { registeredConfig = config; },
+      registerCommand() {},
+    } as unknown as ExtensionAPI;
+    await opencodeDirectExtension(fakePi);
+
+    const refreshed = await registeredConfig.refreshModels({
+      allowNetwork: true,
+      signal: new AbortController().signal,
+      stored: undefined,
+      publish: async (publication: any) => { published = publication; return true; },
+    });
+
+    assert.equal(refreshed[0].id, "hy3-free");
+    assert.equal(refreshed[0].compat.maxTokensField, "max_tokens"); // config shape
+    assert.ok(published, "persist must be called on successful discovery");
+    assert.equal(published.persist.models[0].provider, "opencode-free"); // stamped
+    assert.equal(published.persist.models[0].api, "openai-completions");
+    assert.equal(typeof published.persist.checkedAt, "number");
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("network refresh never wipes a good snapshot when discovery comes back empty", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => { throw new Error("Offline"); }) as typeof fetch;
+  try {
+    let registeredConfig: any = null; let publishCalled = false;
+    const fakePi = {
+      registerProvider(_id: string, config: any) { registeredConfig = config; },
+      registerCommand() {},
+    } as unknown as ExtensionAPI;
+    await opencodeDirectExtension(fakePi);
+    const refreshed = await registeredConfig.refreshModels({
+      allowNetwork: true, signal: new AbortController().signal,
+      stored: { models: [{ id: "old", provider: "opencode-free", api: "openai-completions" }] },
+      publish: async () => { publishCalled = true; return true; },
+    });
+    assert.deepEqual(refreshed, []);
+    assert.equal(publishCalled, false);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("network refresh respects abort signal before fetching", async () => {
+  const originalFetch = globalThis.fetch;
+  let fetchCount = 0;
+  globalThis.fetch = (async () => { fetchCount++; return { ok: true }; }) as unknown as typeof fetch;
+  try {
+    let registeredConfig: any = null;
+    const fakePi = {
+      registerProvider(_id: string, config: any) { registeredConfig = config; },
+      registerCommand() {},
+    } as unknown as ExtensionAPI;
+    await opencodeDirectExtension(fakePi);
+    const controller = new AbortController();
+    controller.abort();
+    const refreshed = await registeredConfig.refreshModels({
+      allowNetwork: true, signal: controller.signal,
+      stored: undefined, publish: async () => true,
+    });
+    assert.deepEqual(refreshed, []);
+    assert.equal(fetchCount, 0);
+  } finally { globalThis.fetch = originalFetch; }
+});

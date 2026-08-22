@@ -63,7 +63,12 @@ export default function opencodeDirectExtension(pi: ExtensionAPI): void {
           .filter(m => m.provider === PROVIDER_ID && m.api === "openai-completions")
           .map(fromStoredModel) ?? [];
       }
-      return [];
+      if (ctx.signal.aborted) return [];
+      const discovered = await discoverModels({ signal: ctx.signal });
+      if (discovered.length === 0) return []; // keep previous snapshot; retry on next refresh
+      const configs = discovered.map(toProviderModel);
+      await ctx.publish({ persist: { models: configs.map(toStoredModel), checkedAt: Date.now() } });
+      return configs;
     },
     // Keyless shim: Zen's free tier rejects every Bearer token with 401,
     // and `Authorization: null` is the OpenAI SDK's supported omission.
