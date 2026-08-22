@@ -17,12 +17,10 @@ pi install npm:pi-opencode-free
 
 ## Usage
 
-Pick any `(Free)` model in Pi's model selector. To pull the latest free list:
-
-```text
-> /opencode-sync
-opencode-free: synchronized 5 free models.
-```
+Pick any `(Free)` model in Pi's model selector. The free-model catalog is
+managed natively by Pi: it loads instantly from a persisted snapshot and
+refreshes itself in the background on startup, when opening the model
+selector, or via `pi update --models`.
 
 ## Issues & contributions
 
@@ -40,8 +38,8 @@ bun scripts/smoke-real.ts  # live request against Zen
 
 | File | Purpose |
 |------|---------|
-| `src/discovery.ts` | Free-model discovery (Zen + models.dev + offline fallback) |
-| `src/index.ts` | Provider registration and `/opencode-sync` |
+| `src/discovery.ts` | Free-model discovery (Zen + models.dev enrichment) |
+| `src/index.ts` | Native provider registration and snapshot persistence |
 
 ## License
 

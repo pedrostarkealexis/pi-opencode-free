@@ -164,3 +164,17 @@ test("network refresh respects abort signal before fetching", async () => {
     assert.equal(fetchCount, 0);
   } finally { globalThis.fetch = originalFetch; }
 });
+
+test("registers no slash commands", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => ({ ok: true, json: async () => ({ data: [] }) })) as unknown as typeof fetch;
+  try {
+    const commands: string[] = [];
+    const fakePi = {
+      registerProvider() {},
+      registerCommand(name: string) { commands.push(name); },
+    } as unknown as ExtensionAPI;
+    await opencodeDirectExtension(fakePi);
+    assert.deepEqual(commands, []);
+  } finally { globalThis.fetch = originalFetch; }
+});

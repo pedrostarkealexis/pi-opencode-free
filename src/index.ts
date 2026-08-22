@@ -1,4 +1,4 @@
-import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 // First-class pi-ai subpath export (stable); unlike /compat, this is not a
 // temporary shim scheduled for deletion.
 import { streamSimple as nativeOpenAICompletionsStream } from "@earendil-works/pi-ai/api/openai-completions";
