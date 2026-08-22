@@ -3,7 +3,7 @@ import test from "node:test";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { readFileSync } from "node:fs";
 import opencodeDirectExtension from "./index.js";
-import { discoverModels, FALLBACK_MODELS } from "./discovery.js";
+import { discoverModels } from "./discovery.js";
 
 function hermeticFetch(): typeof fetch {
   return (async () => ({
@@ -51,7 +51,6 @@ test("opencodeDirectExtension registers native openai-completions provider with 
 test("module exports are defined and functions", () => {
   assert.equal(typeof opencodeDirectExtension, "function");
   assert.equal(typeof discoverModels, "function");
-  assert.ok(Array.isArray(FALLBACK_MODELS));
 });
 
 test("package.json is configured for public release and distribution", () => {

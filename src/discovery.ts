@@ -2,9 +2,9 @@
  * Discovery of free OpenCode Zen models.
  *
  * Free-tier ids come live from the Zen REST API (`/zen/v1/models`). Display
- * names, reasoning support, and limits come from the models.dev catalog,
- * falling back to a small offline table; anything unknown defaults to
- * non-reasoning with conservative limits.
+ * names, reasoning support, and limits come from the models.dev catalog;
+ * anything unknown defaults to non-reasoning with conservative limits.
+ * Every failure mode yields an empty list (no offline catalog).
  */
 
 export interface OpenCodeModelInfo {
@@ -45,27 +45,6 @@ function humanizeName(id: string): string {
 }
 
 /**
- * Offline fallback metadata keyed by base model id.
- */
-const FALLBACK_META: Record<string, ModelMeta> = {
-  "mimo-v2.5": { reasoning: true, reasoning_options: [{ type: "toggle" }], limit: { context: 1_048_576, output: 131_072 } },
-  "hy3": { reasoning: true, reasoning_options: [{ type: "toggle" }, { type: "effort", values: ["low", "medium", "high"] }], limit: { context: 256_000, output: 64_000 } },
-  "nemotron-3-ultra": { reasoning: true, reasoning_options: [{ type: "toggle" }], limit: { context: 131_072, output: 32_000 } },
-  "nemotron-3.5-lightning": { reasoning: true, limit: { context: 1_000_000, output: 128_000 } },
-  "laguna-s-2.1": { reasoning: false, limit: { context: 262_144, output: 16_384 } },
-  "muse-spark-1.2-contributor": { reasoning: false },
-};
-
-export const FALLBACK_MODELS: OpenCodeModelInfo[] = Object.entries(FALLBACK_META).map(([base, meta]) => ({
-  id: `opencode/${base}-free`,
-  name: humanizeName(`${base}-free`),
-  reasoning: meta.reasoning ?? false,
-  contextWindow: meta.limit?.context ?? 128_000,
-  maxTokens: meta.limit?.output ?? 16_384,
-  thinkingLevelMap: buildThinkingLevelMap(meta),
-}));
-
-/**
  * Builds pi's `thinkingLevelMap` from `reasoning_options`. Models without
  * explicit effort values get no map, deferring to the provider default.
  */
@@ -96,8 +75,7 @@ export function filterFreeModels(
     .map(m => {
       const base = baseModelId(m.id);
       const bare = m.id.startsWith("opencode/") ? m.id.slice("opencode/".length) : m.id;
-      // models.dev keys keep the `-free` suffix; the offline table does not.
-      const meta = opts?.catalog?.[bare] ?? opts?.catalog?.[base] ?? FALLBACK_META[base];
+      const meta = opts?.catalog?.[bare] ?? opts?.catalog?.[base];
       return {
         id: m.id.startsWith("opencode/") ? m.id : `opencode/${m.id}`,
         name: m.name ?? meta?.name ?? humanizeName(m.id),
@@ -143,8 +121,8 @@ async function fetchModelsDevCatalog(fetcher: typeof fetch, signal?: AbortSignal
 
 export async function discoverModels(opts?: { fetchFn?: typeof fetch; timeoutMs?: number; signal?: AbortSignal }): Promise<OpenCodeModelInfo[]> {
   const fetcher = opts?.fetchFn ?? fetch;
-  // Strict boot budget: fall back to the offline catalog rather than block
-  // extension load if neither source answers in time.
+  // Strict boot budget: return nothing rather than block extension load if
+  // neither source answers in time.
   const timeoutMs = opts?.timeoutMs ?? 3000;
   try {
     // Combine the caller-provided signal (e.g. refreshModels cancellation)
@@ -163,10 +141,10 @@ export async function discoverModels(opts?: { fetchFn?: typeof fetch; timeoutMs?
       })(),
       fetchModelsDevCatalog(fetcher, signal),
     ]);
-    if (!zen) return FALLBACK_MODELS;
+    if (!zen) return [];
     const filtered = filterFreeModels(zen.data ?? [], { catalog: catalog ?? undefined });
-    return filtered.length > 0 ? filtered : FALLBACK_MODELS;
+    return filtered;
   } catch {
-    return FALLBACK_MODELS;
+    return [];
   }
 }

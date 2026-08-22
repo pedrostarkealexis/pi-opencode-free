@@ -1,35 +1,24 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { discoverModels, filterFreeModels, FALLBACK_MODELS } from "./discovery.js";
+import { discoverModels, filterFreeModels } from "./discovery.js";
 
-test("filterFreeModels filters free models and applies fallback metadata", () => {
+test("filterFreeModels filters free models with conservative default metadata", () => {
   const input = [
     { id: "hy3-free", name: "Hy3" },
     { id: "gpt-5.6-sol", name: "Paid Model" },
     { id: "big-pickle", name: "Big Pickle" },
   ];
   const result = filterFreeModels(input);
-  assert.deepEqual(result.map(m => m.id), [
-    "opencode/hy3-free",
-    "opencode/big-pickle",
-  ]);
-  assert.equal(result[0].reasoning, true);
-  assert.equal(result[0].contextWindow, 256_000);
+  assert.deepEqual(result.map(m => m.id), ["opencode/hy3-free", "opencode/big-pickle"]);
+  assert.equal(result[0].reasoning, false);      // no catalog, no FALLBACK_META
+  assert.equal(result[0].contextWindow, 128_000);
   assert.equal(result[1].reasoning, false);
 });
 
-test("fallback catalog excludes models whose free promotion ended", () => {
-  const ids = FALLBACK_MODELS.map(m => m.id);
-  assert.ok(!ids.includes("opencode/deepseek-v4-flash-free"), "deepseek free promotion ended");
-  assert.ok(ids.includes("opencode/muse-spark-1.2-contributor-free"));
-  assert.ok(ids.includes("opencode/hy3-free"));
-  assert.ok(ids.length > 0);
-});
-
-test("discoverModels returns fallback models when zen fetch fails", async () => {
+test("discoverModels returns empty list when zen fetch fails", async () => {
   const failingFetch = async () => { throw new Error("Offline"); };
   const models = await discoverModels({ fetchFn: failingFetch as typeof fetch });
-  assert.deepEqual(models, FALLBACK_MODELS);
+  assert.deepEqual(models, []);
 });
 
 test("discoverModels serves every free model listed by the endpoint", async () => {
@@ -76,7 +65,7 @@ test("discoverModels enriches metadata from models.dev before the offline table"
   assert.deepEqual(x.input, ["text", "image"]); // modality passthrough
 });
 
-test("discoverModels falls back to offline metadata when models.dev is unreachable", async () => {
+test("discoverModels applies conservative defaults when models.dev is unreachable", async () => {
   const routes = (url: string | URL | Request) => {
     if (String(url).includes("models.dev")) return Promise.reject(new Error("Offline"));
     return Promise.resolve({ ok: true, json: async () => ({ data: [{ id: "hy3-free" }] }) });
@@ -85,15 +74,15 @@ test("discoverModels falls back to offline metadata when models.dev is unreachab
   const models = await discoverModels({ fetchFn: routes as unknown as typeof fetch });
   const hy3 = models.find(m => m.id === "opencode/hy3-free");
   assert.ok(hy3);
-  assert.equal(hy3.contextWindow, 256_000); // from FALLBACK_META
+  assert.equal(hy3.contextWindow, 128_000); // default, not stale hardcoded value
 });
 
-test("discoverModels falls back to offline catalog when fetch times out or aborts", async () => {
+test("discoverModels returns empty list when fetch times out or aborts", async () => {
   const hangingFetch = (_url: string, init?: RequestInit) =>
     new Promise<Response>((_, reject) => {
       init?.signal?.addEventListener("abort", () => reject(new DOMException("Timeout", "AbortError")));
     });
 
   const models = await discoverModels({ fetchFn: hangingFetch as unknown as typeof fetch, timeoutMs: 10 });
-  assert.deepEqual(models, FALLBACK_MODELS);
+  assert.deepEqual(models, []);
 });
