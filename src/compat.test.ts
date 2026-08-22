@@ -13,7 +13,6 @@ async function getShim() {
   let registeredConfig: any = null;
   const fakePi = {
     registerProvider(_id: string, config: any) { registeredConfig = config; },
-    registerCommand() {},
   } as unknown as ExtensionAPI;
   await opencodeDirectExtension(fakePi);
   return registeredConfig;

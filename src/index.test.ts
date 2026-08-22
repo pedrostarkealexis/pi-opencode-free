@@ -13,7 +13,6 @@ test("registers provider once with empty initial models and no boot fetch", asyn
     let registeredId = ""; let registeredConfig: any = null;
     const fakePi = {
       registerProvider(id: string, config: any) { registeredId = id; registeredConfig = config; },
-      registerCommand() {},
     } as unknown as ExtensionAPI;
     await opencodeDirectExtension(fakePi);
     assert.equal(registeredId, "opencode-free");
@@ -52,7 +51,6 @@ test("cache-only refresh restores persisted snapshot without network", async () 
     let registeredConfig: any = null;
     const fakePi = {
       registerProvider(_id: string, config: any) { registeredConfig = config; },
-      registerCommand() {},
     } as unknown as ExtensionAPI;
     await opencodeDirectExtension(fakePi);
 
@@ -83,7 +81,6 @@ test("cache-only refresh with no stored snapshot yields empty list", async () =>
     let registeredConfig: any = null;
     const fakePi = {
       registerProvider(_id: string, config: any) { registeredConfig = config; },
-      registerCommand() {},
     } as unknown as ExtensionAPI;
     await opencodeDirectExtension(fakePi);
     const restored = await registeredConfig.refreshModels({
@@ -103,7 +100,6 @@ test("network refresh discovers models and persists a stamped snapshot", async (
     let registeredConfig: any = null;
     const fakePi = {
       registerProvider(_id: string, config: any) { registeredConfig = config; },
-      registerCommand() {},
     } as unknown as ExtensionAPI;
     await opencodeDirectExtension(fakePi);
 
@@ -130,7 +126,6 @@ test("network refresh never wipes a good snapshot when discovery comes back empt
     let registeredConfig: any = null; let publishCalled = false;
     const fakePi = {
       registerProvider(_id: string, config: any) { registeredConfig = config; },
-      registerCommand() {},
     } as unknown as ExtensionAPI;
     await opencodeDirectExtension(fakePi);
     const refreshed = await registeredConfig.refreshModels({
@@ -151,7 +146,6 @@ test("network refresh respects abort signal before fetching", async () => {
     let registeredConfig: any = null;
     const fakePi = {
       registerProvider(_id: string, config: any) { registeredConfig = config; },
-      registerCommand() {},
     } as unknown as ExtensionAPI;
     await opencodeDirectExtension(fakePi);
     const controller = new AbortController();
@@ -172,7 +166,6 @@ test("registers no slash commands", async () => {
     const commands: string[] = [];
     const fakePi = {
       registerProvider() {},
-      registerCommand(name: string) { commands.push(name); },
     } as unknown as ExtensionAPI;
     await opencodeDirectExtension(fakePi);
     assert.deepEqual(commands, []);
