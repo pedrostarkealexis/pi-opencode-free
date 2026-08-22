@@ -2,3 +2,5 @@ node_modules/
 dist/
 *.tsbuildinfo
 AGENTS.md
+.pi/
+*.tgz
