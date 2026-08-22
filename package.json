@@ -1,6 +1,6 @@
 {
   "name": "pi-opencode-free",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Zero-daemon, pure-passthrough native Pi extension connecting directly to OpenCode Zen API",
   "type": "module",
   "license": "GPL-3.0-or-later",
@@ -18,9 +18,15 @@
     "README.md",
     "LICENSE"
   ],
-  "keywords": ["pi-package", "opencode", "free-models"],
+  "keywords": [
+    "pi-package",
+    "opencode",
+    "free-models"
+  ],
   "pi": {
-    "extensions": ["./dist/index.js"]
+    "extensions": [
+      "./dist/index.js"
+    ]
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
