@@ -4,6 +4,13 @@
   "description": "Zero-daemon, pure-passthrough native Pi extension connecting directly to OpenCode Zen API",
   "type": "module",
   "license": "GPL-3.0-or-later",
+  "author": "Pedro Alexis",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pedrostarkealexis/pi-opencode-free.git"
+  },
+  "bugs": "https://github.com/pedrostarkealexis/pi-opencode-free/issues",
+  "homepage": "https://github.com/pedrostarkealexis/pi-opencode-free#readme",
   "files": [
     "dist",
     "!dist/*.test.*",
