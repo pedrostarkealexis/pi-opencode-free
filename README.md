@@ -1,4 +1,4 @@
-# pi-opencode-free
+# Pi-opencode-free
 
 Free OpenCode models in [Pi](https://github.com/earendil-works/pi), no API key.
 
