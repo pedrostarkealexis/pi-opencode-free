@@ -29,7 +29,7 @@ test("opencodeDirectExtension registers native openai-completions provider with 
 
     await opencodeDirectExtension(fakePi);
 
-    assert.equal(registeredId, "opencode-direct");
+    assert.equal(registeredId, "opencode-free");
     assert.equal(registeredConfig.name, "OpenCode Direct (Free)");
     assert.equal(registeredConfig.api, "openai-completions");
     assert.equal(registeredConfig.baseUrl, "https://opencode.ai/zen/v1");

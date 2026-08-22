@@ -36,9 +36,9 @@ function shimStream(model: Model<"openai-completions">, context: Context, option
 function toPiModel(m: Awaited<ReturnType<typeof discoverModels>>[number]): Model<"openai-completions"> {
   return {
     id: m.id.replace(/^opencode\//, ""),
-    name: `${m.name} (Direct)`,
+    name: m.name,
     api: "openai-completions",
-    provider: "opencode-direct",
+    provider: "opencode-free",
     baseUrl: "https://opencode.ai/zen/v1",
     reasoning: m.reasoning ?? false,
     thinkingLevelMap: m.thinkingLevelMap,

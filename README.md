@@ -11,7 +11,7 @@ Registers a lightweight provider in Pi using `ExtensionAPI.registerProvider` con
 | File | Purpose |
 |------|---------|
 | `src/discovery.ts` | `discoverModels()` — fetch `https://opencode.ai/zen/v1/models` with offline `FALLBACK_MODELS` |
-| `src/index.ts` | Extension entrypoint registering the native `opencode-direct` provider + `/opencode-sync` command |
+| `src/index.ts` | Extension entrypoint registering the native `opencode-free` provider + `/opencode-sync` command |
 | `scripts/smoke-real.ts` | Real-scenario smoke test against the live Zen API (`bun scripts/smoke-real.ts`) |
 
 ## Usage

@@ -5,7 +5,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { streamSimple as nativeOpenAICompletionsStream } from "@earendil-works/pi-ai/compat";
 import { discoverModels } from "./discovery.js";
 
-const PROVIDER_ID = "opencode-direct";
+const PROVIDER_ID = "opencode-free";
 
 // OpenCode Zen is an OpenAI-compatible completions endpoint. These compat
 // flags describe the upstream so Pi's native openai-completions engine sends
@@ -40,7 +40,7 @@ export default async function opencodeDirectExtension(pi: ExtensionAPI): Promise
       },
       models: models.map(m => ({
         id: m.id.replace(/^opencode\//, ""),
-        name: `${m.name} (Direct)`,
+        name: m.name,
         reasoning: m.reasoning ?? false,
         thinkingLevelMap: m.thinkingLevelMap,
         input: ["text"] as ("text" | "image")[],
@@ -71,7 +71,7 @@ export default async function opencodeDirectExtension(pi: ExtensionAPI): Promise
     description: "Sync latest free models list from OpenCode Zen",
     handler: async (_args: string, ctx: any) => {
       const count = await registerProvider();
-      ctx.ui.notify(`opencode-direct: synchronized ${count} free models.`, "info");
+      ctx.ui.notify(`opencode-free: synchronized ${count} free models.`, "info");
     },
   });
 }
