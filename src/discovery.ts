@@ -103,11 +103,16 @@ export function filterFreeModels(models: Array<{ id: string; name?: string }>): 
     });
 }
 
-export async function discoverModels(opts?: { fetchFn?: typeof fetch }): Promise<OpenCodeModelInfo[]> {
+export async function discoverModels(opts?: { fetchFn?: typeof fetch; timeoutMs?: number }): Promise<OpenCodeModelInfo[]> {
   const fetcher = opts?.fetchFn ?? fetch;
+  // Strict startup budget: if Zen does not answer quickly, boot proceeds on
+  // the offline catalog instead of blocking extension load.
+  const timeoutMs = opts?.timeoutMs ?? 3000;
   try {
+    const signal = typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(timeoutMs) : undefined;
     const zen = await fetcher(ZEN_MODELS_URL, {
       headers: { "x-opencode-client": "cli", "User-Agent": "opencode/0.0.0-dev" },
+      signal,
     });
     if (!zen.ok) return FALLBACK_MODELS;
     const data = await zen.json() as { data?: Array<{ id: string; name?: string }> };

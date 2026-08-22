@@ -46,3 +46,13 @@ test("discoverModels serves every free model listed by the endpoint", async () =
     "opencode/deepseek-v4-flash-free",
   ]);
 });
+
+test("discoverModels falls back to offline catalog when fetch times out or aborts", async () => {
+  const hangingFetch = (_url: string, init?: RequestInit) =>
+    new Promise<Response>((_, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(new DOMException("Timeout", "AbortError")));
+    });
+
+  const models = await discoverModels({ fetchFn: hangingFetch as unknown as typeof fetch, timeoutMs: 10 });
+  assert.deepEqual(models, FALLBACK_MODELS);
+});
