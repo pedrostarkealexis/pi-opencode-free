@@ -1,38 +1,48 @@
 # pi-opencode-free
 
-Native Pi extension connecting directly to OpenCode Zen API using Pi's built-in `openai-completions` engine with dynamic free model discovery, OpenCode client headers, and native streaming.
+Free OpenCode models in [Pi](https://github.com/earendil-works/pi), no API key.
 
-## Architecture
+## Why
 
-Registers a lightweight provider in Pi using `ExtensionAPI.registerProvider` configured with `api: "openai-completions"`. Free models are discovered on boot from OpenCode Zen, and OpenCode client headers (`x-opencode-client`, `x-opencode-project`, `User-Agent`) are injected to authorize free tier usage. All SSE streaming, reasoning parsing, and tool calls are handled natively by Pi.
+The Pi CLI already ships an `opencode` provider, but through it the models only run on paid plans. This extension hits the same endpoint and removes the need for a paid plan: it discovers the models advertised as free and sends the OpenCode client headers (`x-opencode-client`, `x-opencode-project`, `User-Agent`) on every request, which authorizes free, keyless usage.
 
-## Structure
+Everything else is Pi's native `openai-completions` engine: streaming, reasoning, tools. Nothing is intercepted or rewritten.
 
-| File | Purpose |
-|------|---------|
-| `src/discovery.ts` | `discoverModels()` — free ids from Zen, metadata from models.dev, offline `FALLBACK_MODELS` as last resort |
-| `src/index.ts` | Extension entrypoint registering the native `opencode-free` provider + `/opencode-sync` command |
-| `scripts/smoke-real.ts` | Real-scenario smoke test against the live Zen API (`bun scripts/smoke-real.ts`) |
+## Install
+
+```bash
+pi install npm:pi-opencode-free
+```
+
 
 ## Usage
 
-Install dependencies and run tests:
+Pick any `(Free)` model in Pi's model selector. To pull the latest free list:
 
-```bash
-npm install
-bun test src/          # or: npm run build && node --test dist/*.test.js
+```text
+> /opencode-sync
+opencode-free: synchronized 5 free models.
 ```
 
-Load the extension in Pi:
+## Issues & contributions
+
+Found a problem? Open an [issue](../../issues/new). Contributions are welcome.
+
+## Development
+
+Uses [Bun](https://bun.sh)
 
 ```bash
-pi -e ./src/index.ts
+bun install
+bun test src/            # unit tests
+bun scripts/smoke-real.ts  # live request against Zen
 ```
 
-## Key Properties
+| File | Purpose |
+|------|---------|
+| `src/discovery.ts` | Free-model discovery (Zen + models.dev + offline fallback) |
+| `src/index.ts` | Provider registration and `/opencode-sync` |
 
-- **Dynamic discovery:** free-model ids from OpenCode Zen on boot; context window/thinking/modalities metadata enriched live from models.dev; hardcoded fallback only if both are unreachable. Both requests guarded by a 3s abort timeout.
-- **OpenCode client headers:** `x-opencode-client`, `x-opencode-project`, and `User-Agent` are sent on every request to authorize free tier usage.
-- **Keyless auth shim:** the Zen free tier is anonymous — any Bearer token gets 401. A thin `streamSimple` wrapper delegates to Pi's native engine but omits the `Authorization` header (the OpenAI SDK's supported null-omission); no streaming logic is custom.
-- **Pure pass-through:** `messages`, `systemPrompt`, and `tools` are never mutated; SSE streaming, reasoning replay, tool accumulation, and cost calculations are delegated entirely to Pi's native engine.
-- **Zero custom transport:** no manual SSE parsing, session hashing, or buffers — the provider is fully declarative.
+## License
+
+[GPL-3.0-or-later](./LICENSE)
