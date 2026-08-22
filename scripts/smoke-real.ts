@@ -4,13 +4,15 @@
  * extension's exact provider config via Pi's native engine.
  * Run with: bun scripts/smoke-real.ts
  */
-import { streamSimple } from "@earendil-works/pi-ai/api/openai-completions";
+import { openAICompletionsApi } from "@earendil-works/pi-ai/compat";
 import type {
   AssistantMessageEvent,
   Context,
   Model,
   Tool,
 } from "@earendil-works/pi-ai";
+
+const streamSimple = openAICompletionsApi().streamSimple;
 import { discoverModels } from "../src/discovery.js";
 
 const OPENCODE_COMPAT = {

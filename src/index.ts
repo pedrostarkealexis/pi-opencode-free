@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-// First-class pi-ai subpath export (stable); unlike /compat, this is not a
-// temporary shim scheduled for deletion.
-import { streamSimple as nativeOpenAICompletionsStream } from "@earendil-works/pi-ai/api/openai-completions";
+// pi's extension loader aliases the pi-ai root to the /compat entrypoint and
+// only whitelists exact subpaths (/compat, /oauth, /providers/all), so deeper
+// subpath imports like .../api/openai-completions fail to resolve at load time.
+import { openAICompletionsApi } from "@earendil-works/pi-ai/compat";
 import { discoverModels, type OpenCodeModelInfo } from "./discovery.js";
+
+const nativeOpenAICompletionsStream = openAICompletionsApi().streamSimple;
 
 const PROVIDER_ID = "opencode-free";
 const BASE_URL = "https://opencode.ai/zen/v1";
