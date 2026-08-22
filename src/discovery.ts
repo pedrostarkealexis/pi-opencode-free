@@ -5,23 +5,28 @@ export interface OpenCodeModelInfo {
 }
 
 export const FALLBACK_MODELS: OpenCodeModelInfo[] = [
-  { id: "deepseek-v4-flash-free", name: "DeepSeek v4 Flash (Free)", reasoning: true },
-  { id: "muse-spark-1.2-contributor-free", name: "Muse Spark 1.2 Contributor (Free)", reasoning: false },
-  { id: "mimo-v2.5-free", name: "MiMo v2.5 (Free)", reasoning: false },
-  { id: "hy3-free", name: "Hy3 (Free)", reasoning: false },
-  { id: "nemotron-3-ultra-free", name: "Nemotron 3 Ultra (Free)", reasoning: true },
-  { id: "nemotron-3.5-lightning-free", name: "Nemotron 3.5 Lightning (Free)", reasoning: true },
-  { id: "laguna-s-2.1-free", name: "Laguna S 2.1 (Free)", reasoning: false },
+  { id: "opencode/deepseek-v4-flash-free", name: "DeepSeek v4 Flash (Free)", reasoning: true },
+  { id: "opencode/muse-spark-1.2-contributor-free", name: "Muse Spark 1.2 Contributor (Free)", reasoning: false },
+  { id: "opencode/mimo-v2.5-free", name: "MiMo v2.5 (Free)", reasoning: false },
+  { id: "opencode/hy3-free", name: "Hy3 (Free)", reasoning: false },
+  { id: "opencode/nemotron-3-ultra-free", name: "Nemotron 3 Ultra (Free)", reasoning: true },
+  { id: "opencode/nemotron-3.5-lightning-free", name: "Nemotron 3.5 Lightning (Free)", reasoning: true },
+  { id: "opencode/laguna-s-2.1-free", name: "Laguna S 2.1 (Free)", reasoning: false },
 ];
+
+const freeRegex = /(^(opencode\/)?.*-free$)|(^(opencode\/)?big-pickle$)/i;
 
 export function filterFreeModels(models: Array<{ id: string; name?: string }>): OpenCodeModelInfo[] {
   return models
-    .filter(m => m.id.endsWith("-free"))
-    .map(m => ({
-      id: m.id,
-      name: m.name ?? humanizeName(m.id),
-      reasoning: /(deepseek|nemotron|hy3)/.test(m.id),
-    }));
+    .filter(m => freeRegex.test(m.id))
+    .map(m => {
+      const bareId = m.id.replace(/^opencode\//, "");
+      return {
+        id: `opencode/${bareId}`,
+        name: m.name ?? humanizeName(bareId),
+        reasoning: /(deepseek|nemotron|hy3)/i.test(bareId),
+      };
+    });
 }
 
 function humanizeName(id: string): string {

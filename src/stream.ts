@@ -6,7 +6,10 @@ import {
   type Context,
   type Model,
   type SimpleStreamOptions,
+  type Tool,
   type ToolCall,
+  type ToolResultMessage,
+  type UserMessage,
 } from "@earendil-works/pi-ai";
 import { createSessionHeaders } from "./headers.js";
 
@@ -49,6 +52,90 @@ interface ToolCallAccumulator {
   contentIndex: number;
 }
 
+type OpenAiContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
+function userContentToOpenAi(content: UserMessage["content"]): string | OpenAiContentPart[] {
+  if (typeof content === "string") return content;
+  return content.map(block =>
+    block.type === "image"
+      ? { type: "image_url", image_url: { url: `data:${block.mimeType};base64,${block.data}` } }
+      : { type: "text", text: block.text }
+  );
+}
+
+function assistantToOpenAi(msg: AssistantMessage): Record<string, unknown> {
+  const out: Record<string, unknown> = { role: "assistant" };
+  const text: string[] = [];
+  const thinking: string[] = [];
+  const toolCalls: Array<{ id: string; type: "function"; function: { name: string; arguments: string } }> = [];
+
+  for (const block of msg.content) {
+    if (block.type === "text") text.push(block.text);
+    else if (block.type === "thinking") thinking.push(block.thinking);
+    else if (block.type === "toolCall") {
+      toolCalls.push({
+        id: block.id,
+        type: "function",
+        function: { name: block.name, arguments: JSON.stringify(block.arguments ?? {}) },
+      });
+    }
+  }
+
+  // Reasoning models (DeepSeek/Nemotron) require prior thinking to be replayed
+  // in the root `reasoning_content` field for multi-turn/tool-call continuity.
+  if (thinking.length > 0) out.reasoning_content = thinking.join("");
+  out.content = text.join("");
+  if (toolCalls.length > 0) out.tool_calls = toolCalls;
+  return out;
+}
+
+function toolResultToOpenAi(msg: ToolResultMessage): Record<string, unknown> {
+  const parts: OpenAiContentPart[] = msg.content.map(block =>
+    block.type === "image"
+      ? { type: "image_url", image_url: { url: `data:${block.mimeType};base64,${block.data}` } }
+      : { type: "text", text: block.text }
+  );
+  const content = parts.length === 1 && parts[0].type === "text" ? parts[0].text : parts;
+  return { role: "tool", tool_call_id: msg.toolCallId, content };
+}
+
+/**
+ * Converts pi messages into the OpenAI chat-completions shape expected by the
+ * OpenCode Zen API. The system prompt is injected as the first message, and
+ * assistant thinking/tool-call blocks are hoisted to the message root fields
+ * (`reasoning_content`, `tool_calls`) the upstream API requires.
+ */
+export function adaptMessages(context: Context): Record<string, unknown>[] {
+  const messages: Record<string, unknown>[] = [];
+  if (context.systemPrompt) {
+    messages.push({ role: "system", content: context.systemPrompt });
+  }
+  for (const msg of context.messages) {
+    if (msg.role === "user") messages.push({ role: "user", content: userContentToOpenAi(msg.content) });
+    else if (msg.role === "assistant") messages.push(assistantToOpenAi(msg));
+    else if (msg.role === "toolResult") messages.push(toolResultToOpenAi(msg));
+  }
+  return messages;
+}
+
+/**
+ * Converts pi tools into the OpenAI `{ type: "function", function: {...} }`
+ * shape required by the OpenCode Zen API.
+ */
+export function adaptTools(tools?: Tool[]): Record<string, unknown>[] | undefined {
+  if (!tools || tools.length === 0) return undefined;
+  return tools.map(t => ({
+    type: "function",
+    function: {
+      name: t.name,
+      description: t.description,
+      parameters: t.parameters,
+    },
+  }));
+}
+
 export function streamOpenCodeDirect(
   model: Model<any>,
   context: Context,
@@ -80,8 +167,8 @@ export function streamOpenCodeDirect(
       const headers = createSessionHeaders(context.messages);
       const payload: Record<string, unknown> = {
         model: model.id.replace(/^opencode\//, ""),
-        messages: context.messages,
-        tools: context.tools,
+        messages: adaptMessages(context),
+        tools: adaptTools(context.tools),
         stream: true,
       };
       if (options?.reasoning !== undefined) payload.reasoning = options.reasoning;
