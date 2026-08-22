@@ -19,8 +19,8 @@ pi install npm:pi-opencode-free
 
 Pick any `(Free)` model in Pi's model selector. The free-model catalog is
 managed natively by Pi: it loads instantly from a persisted snapshot and
-refreshes itself in the background on startup, when opening the model
-selector, or via `pi update --models`.
+refreshes itself in the background on interactive startup or when opening
+the model selector.
 
 ## Issues & contributions
 
