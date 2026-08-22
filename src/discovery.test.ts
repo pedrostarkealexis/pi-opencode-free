@@ -4,15 +4,16 @@ import { discoverModels, filterFreeModels, FALLBACK_MODELS } from "./discovery.j
 
 test("filterFreeModels filters free models from API list", () => {
   const input = [
-    { id: "opencode/deepseek-v4-flash-free", name: "DeepSeek v4 Flash" },
-    { id: "opencode/gpt-4o-paid", name: "Paid Model" },
-    { id: "opencode/big-pickle", name: "Big Pickle" },
+    { id: "deepseek-v4-flash-free", name: "DeepSeek v4 Flash" },
+    { id: "gpt-5.6-sol", name: "Paid Model" },
+    { id: "nemotron-3-ultra-free", name: "Nemotron 3 Ultra" },
   ];
   const result = filterFreeModels(input);
   assert.deepEqual(result.map(m => m.id), [
-    "opencode/deepseek-v4-flash-free",
-    "opencode/big-pickle",
+    "deepseek-v4-flash-free",
+    "nemotron-3-ultra-free",
   ]);
+  assert.equal(result[0].reasoning, true);
 });
 
 test("discoverModels returns fallback models when fetch fails", async () => {
