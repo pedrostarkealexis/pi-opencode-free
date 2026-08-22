@@ -3,7 +3,7 @@ import test from "node:test";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import opencodeDirectExtension from "./index.js";
 
-test("opencodeDirectExtension registers opencode-direct provider", async () => {
+test("opencodeDirectExtension registers native openai-completions provider with opencode headers", async () => {
   let registeredId = "";
   let registeredConfig: any = null;
 
@@ -19,6 +19,12 @@ test("opencodeDirectExtension registers opencode-direct provider", async () => {
 
   assert.equal(registeredId, "opencode-direct");
   assert.equal(registeredConfig.name, "OpenCode Direct (Free)");
+  assert.equal(registeredConfig.api, "openai-completions");
+  assert.equal(registeredConfig.baseUrl, "https://opencode.ai/zen/v1");
+  assert.equal(registeredConfig.apiKey, "none");
+  assert.equal(registeredConfig.headers["x-opencode-client"], "cli");
+  assert.equal(registeredConfig.headers["x-opencode-project"], "global");
+  assert.equal(registeredConfig.streamSimple, undefined); // delegates to native engine
   assert.ok(registeredConfig.models.length > 0);
-  assert.equal(typeof registeredConfig.streamSimple, "function");
+  assert.equal(registeredConfig.models[0].compat.supportsStore, false);
 });
