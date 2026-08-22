@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { readFileSync } from "node:fs";
 import opencodeDirectExtension from "./index.js";
+import { discoverModels, FALLBACK_MODELS } from "./discovery.js";
 
 function hermeticFetch(): typeof fetch {
   return (async () => ({
@@ -44,6 +46,21 @@ test("opencodeDirectExtension registers native openai-completions provider with 
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("module exports are defined and functions", () => {
+  assert.equal(typeof opencodeDirectExtension, "function");
+  assert.equal(typeof discoverModels, "function");
+  assert.ok(Array.isArray(FALLBACK_MODELS));
+});
+
+test("package.json is configured for public release and distribution", () => {
+  const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  assert.equal(pkg.private, undefined, "package must not be private");
+  assert.equal(pkg.license, "GPL-3.0-or-later");
+  assert.deepEqual(pkg.pi?.extensions, ["./dist/index.js"]);
+  assert.ok(pkg.files?.includes("dist"));
+  assert.ok(pkg.scripts?.prepack);
 });
 
 test("/opencode-sync re-registers the provider with a refreshed model list", async () => {

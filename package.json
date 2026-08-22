@@ -3,13 +3,21 @@
   "version": "0.1.0",
   "description": "Zero-daemon, pure-passthrough native Pi extension connecting directly to OpenCode Zen API",
   "type": "module",
-  "private": true,
+  "license": "GPL-3.0-or-later",
+  "files": [
+    "dist",
+    "!dist/*.test.*",
+    "!dist/**/*.map",
+    "README.md",
+    "LICENSE"
+  ],
   "keywords": ["pi-package"],
   "pi": {
-    "extensions": ["./index.ts"]
+    "extensions": ["./dist/index.js"]
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "prepack": "npm run build",
     "test": "bun test src/",
     "test:node": "npm run build && node --test \"dist/**/*.test.js\"",
     "smoke": "bun scripts/smoke-real.ts"
