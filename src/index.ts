@@ -1,4 +1,8 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+// Imported from the /compat entrypoint: it is the path pi's extension loader
+// aliases for extensions and it re-exports the native openai-completions
+// stream functions (the bare root export does not include them).
+import { streamSimple as nativeOpenAICompletionsStream } from "@earendil-works/pi-ai/compat";
 import { discoverModels } from "./discovery.js";
 
 const PROVIDER_ID = "opencode-direct";
@@ -20,6 +24,8 @@ export default async function opencodeDirectExtension(pi: ExtensionAPI): Promise
   pi.registerProvider(PROVIDER_ID, {
     name: "OpenCode Direct (Free)",
     baseUrl: "https://opencode.ai/zen/v1",
+    // Placeholder key so Pi's auth composition accepts the provider; real
+    // requests go out keyless via the streamSimple shim below.
     apiKey: "none",
     api: "openai-completions",
     headers: {
@@ -38,6 +44,17 @@ export default async function opencodeDirectExtension(pi: ExtensionAPI): Promise
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
       compat: OPENCODE_COMPAT,
     })),
+    // Thin auth shim around Pi's NATIVE openai-completions engine (same
+    // pattern as pi's gitlab-duo example). All SSE streaming, tool-call
+    // accumulation, reasoning replay, and usage/cost handling stay native;
+    // we only drop the Authorization header, because the Zen free tier is
+    // anonymous and rejects every Bearer token with 401. `Authorization:
+    // null` is the OpenAI SDK's supported way to omit the header entirely.
+    streamSimple: (model, context, options) =>
+      nativeOpenAICompletionsStream(model, context, {
+        ...options,
+        headers: { ...options?.headers, Authorization: null },
+      }),
   });
 
   pi.registerCommand("opencode-sync", {

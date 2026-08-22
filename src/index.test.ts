@@ -24,7 +24,9 @@ test("opencodeDirectExtension registers native openai-completions provider with 
   assert.equal(registeredConfig.apiKey, "none");
   assert.equal(registeredConfig.headers["x-opencode-client"], "cli");
   assert.equal(registeredConfig.headers["x-opencode-project"], "global");
-  assert.equal(registeredConfig.streamSimple, undefined); // delegates to native engine
   assert.ok(registeredConfig.models.length > 0);
   assert.equal(registeredConfig.models[0].compat.supportsStore, false);
+  // Thin keyless shim over the native engine (delegation itself is verified
+  // end-to-end against the live API by scripts/smoke-real.ts).
+  assert.equal(typeof registeredConfig.streamSimple, "function");
 });
