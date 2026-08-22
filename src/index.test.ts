@@ -103,3 +103,30 @@ test("/opencode-sync re-registers the provider with a refreshed model list", asy
     globalThis.fetch = originalFetch;
   }
 });
+
+test("refreshModels returns the live free-model list for pi's native refresh flow", async () => {
+  const originalFetch = globalThis.fetch;
+  let catalog: { data: Array<{ id: string; name?: string }> } = { data: [{ id: "hy3-free", name: "Hy3" }] };
+  globalThis.fetch = (async () => ({ ok: true, json: async () => catalog }) as Response) as typeof fetch;
+
+  try {
+    let registeredConfig: any = null;
+    const fakePi = {
+      registerProvider(_id: string, config: any) { registeredConfig = config; },
+      registerCommand() {},
+    } as unknown as ExtensionAPI;
+
+    await opencodeDirectExtension(fakePi);
+    assert.equal(typeof registeredConfig.refreshModels, "function");
+
+    // Endpoint adds a model; native refresh must see it without re-registering.
+    catalog = { data: [{ id: "hy3-free", name: "Hy3" }, { id: "nemotron-3-ultra-free" }] };
+    const refreshed = await registeredConfig.refreshModels({ signal: new AbortController().signal });
+    assert.deepEqual(refreshed.map((m: any) => m.id), ["hy3-free", "nemotron-3-ultra-free"]);
+    assert.equal(refreshed[0].name, "Hy3");
+    // Same provider-model shape as the initial registration.
+    assert.equal(refreshed[1].compat.maxTokensField, "max_tokens");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

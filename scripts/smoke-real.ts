@@ -3,7 +3,7 @@
  * extension's exact provider config via Pi's native engine.
  * Run with: bun scripts/smoke-real.ts
  */
-import { streamSimple } from "@earendil-works/pi-ai/compat";
+import { streamSimple } from "@earendil-works/pi-ai/api/openai-completions";
 import type {
   AssistantMessageEvent,
   Context,

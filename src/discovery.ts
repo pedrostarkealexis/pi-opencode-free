@@ -111,9 +111,8 @@ export function filterFreeModels(
 }
 
 /** Fetches models.dev catalog entries for the `opencode` provider; null on any failure. */
-async function fetchModelsDevCatalog(fetcher: typeof fetch, timeoutMs: number): Promise<Record<string, ModelMeta> | null> {
+async function fetchModelsDevCatalog(fetcher: typeof fetch, signal?: AbortSignal): Promise<Record<string, ModelMeta> | null> {
   try {
-    const signal = typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(timeoutMs) : undefined;
     const res = await fetcher(MODELS_DEV_URL, { signal });
     if (!res.ok) return null;
     const cat = await res.json() as { opencode?: { models?: Record<string, unknown> } };
@@ -142,13 +141,17 @@ async function fetchModelsDevCatalog(fetcher: typeof fetch, timeoutMs: number): 
   }
 }
 
-export async function discoverModels(opts?: { fetchFn?: typeof fetch; timeoutMs?: number }): Promise<OpenCodeModelInfo[]> {
+export async function discoverModels(opts?: { fetchFn?: typeof fetch; timeoutMs?: number; signal?: AbortSignal }): Promise<OpenCodeModelInfo[]> {
   const fetcher = opts?.fetchFn ?? fetch;
   // Strict boot budget: fall back to the offline catalog rather than block
   // extension load if neither source answers in time.
   const timeoutMs = opts?.timeoutMs ?? 3000;
   try {
-    const signal = typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(timeoutMs) : undefined;
+    // Combine the caller-provided signal (e.g. refreshModels cancellation)
+    // with our own deadline so either one aborts discovery.
+    const timeoutSignal = typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(timeoutMs) : undefined;
+    const signals = [timeoutSignal, opts?.signal].filter((s): s is AbortSignal => !!s);
+    const signal = signals.length > 1 && typeof AbortSignal.any === "function" ? AbortSignal.any(signals) : signals[0];
     const [zen, catalog] = await Promise.all([
       (async () => {
         const res = await fetcher(ZEN_MODELS_URL, {
@@ -158,7 +161,7 @@ export async function discoverModels(opts?: { fetchFn?: typeof fetch; timeoutMs?
         if (!res.ok) return null;
         return await res.json() as { data?: Array<{ id: string; name?: string }> };
       })(),
-      fetchModelsDevCatalog(fetcher, timeoutMs),
+      fetchModelsDevCatalog(fetcher, signal),
     ]);
     if (!zen) return FALLBACK_MODELS;
     const filtered = filterFreeModels(zen.data ?? [], { catalog: catalog ?? undefined });

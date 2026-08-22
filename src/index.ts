@@ -1,8 +1,8 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-// Must come from /compat: pi's extension loader aliases this subpath, and only
-// it re-exports the native openai-completions stream functions.
-import { streamSimple as nativeOpenAICompletionsStream } from "@earendil-works/pi-ai/compat";
-import { discoverModels } from "./discovery.js";
+import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+// First-class pi-ai subpath export (stable); unlike /compat, this is not a
+// temporary shim scheduled for deletion.
+import { streamSimple as nativeOpenAICompletionsStream } from "@earendil-works/pi-ai/api/openai-completions";
+import { discoverModels, type OpenCodeModelInfo } from "./discovery.js";
 
 const PROVIDER_ID = "opencode-free";
 
@@ -14,6 +14,21 @@ const OPENCODE_COMPAT = {
   maxTokensField: "max_tokens" as const,
   requiresReasoningContentOnAssistantMessages: true,
 };
+
+/** Maps a discovered model to the provider config shape. */
+function toProviderModel(m: OpenCodeModelInfo) {
+  return {
+    id: m.id.replace(/^opencode\//, ""),
+    name: m.name,
+    reasoning: m.reasoning ?? false,
+    thinkingLevelMap: m.thinkingLevelMap,
+    input: (m.input?.includes("image") ? ["text", "image"] : ["text"]) as ("text" | "image")[],
+    contextWindow: m.contextWindow ?? 128_000,
+    maxTokens: m.maxTokens ?? 16_384,
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    compat: OPENCODE_COMPAT,
+  };
+}
 
 export default async function opencodeDirectExtension(pi: ExtensionAPI): Promise<void> {
   // Re-registering with `models` replaces the live list in place, so
@@ -33,22 +48,17 @@ export default async function opencodeDirectExtension(pi: ExtensionAPI): Promise
         "x-opencode-project": "global",
         "User-Agent": "opencode/0.0.0-dev",
       },
-      models: models.map(m => ({
-        id: m.id.replace(/^opencode\//, ""),
-        name: m.name,
-        reasoning: m.reasoning ?? false,
-        thinkingLevelMap: m.thinkingLevelMap,
-        input: (m.input?.includes("image") ? ["text", "image"] : ["text"]) as ("text" | "image")[],
-        contextWindow: m.contextWindow ?? 128_000,
-        maxTokens: m.maxTokens ?? 16_384,
-        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-        compat: OPENCODE_COMPAT,
-      })),
+      models: models.map(toProviderModel),
+      // Native refresh hook: lets `pi update --models` re-discover the free
+      // list without persisting it (live catalog, like the llama.cpp pattern).
+      async refreshModels({ signal }: { signal: AbortSignal }) {
+        return (await discoverModels({ signal })).map(toProviderModel);
+      },
       // Keyless shim: Zen's free tier rejects every Bearer token with 401,
       // and `Authorization: null` is the OpenAI SDK's supported omission.
       // Streaming, tools, reasoning, and cost handling stay fully native.
       streamSimple: (model, context, options) =>
-        nativeOpenAICompletionsStream(model, context, {
+        nativeOpenAICompletionsStream(model as Parameters<typeof nativeOpenAICompletionsStream>[0], context, {
           ...options,
           headers: { ...options?.headers, Authorization: null },
         }),
@@ -61,7 +71,7 @@ export default async function opencodeDirectExtension(pi: ExtensionAPI): Promise
 
   pi.registerCommand("opencode-sync", {
     description: "Sync latest free models list from OpenCode Zen",
-    handler: async (_args: string, ctx: any) => {
+    handler: async (_args: string, ctx: ExtensionCommandContext) => {
       const count = await registerProvider();
       ctx.ui.notify(`opencode-free: synchronized ${count} free models.`, "info");
     },
