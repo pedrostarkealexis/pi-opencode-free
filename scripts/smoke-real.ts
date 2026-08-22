@@ -1,7 +1,7 @@
 /**
- * Real-scenario smoke test: exercises the extension's exact provider config
- * against the live OpenCode Zen API using Pi's native openai-completions
- * engine. Run with: bun scripts/smoke-real.ts
+ * Real-scenario smoke test against the live OpenCode Zen API, exercising the
+ * extension's exact provider config via Pi's native engine.
+ * Run with: bun scripts/smoke-real.ts
  */
 import { streamSimple } from "@earendil-works/pi-ai/compat";
 import type {
@@ -25,7 +25,7 @@ const HEADERS = {
   "User-Agent": "opencode/0.0.0-dev",
 };
 
-/** Mirrors the streamSimple shim in src/index.ts: native engine + keyless auth. */
+/** Mirrors the streamSimple shim in src/index.ts. */
 function shimStream(model: Model<"openai-completions">, context: Context, options?: any) {
   return streamSimple(model, context, {
     ...options,
@@ -73,7 +73,6 @@ function check(label: string, ok: boolean, detail = "") {
   if (!ok) failures++;
 }
 
-// ---------------------------------------------------------------- test 1
 console.log("== 1. Live model discovery from OpenCode Zen ==");
 const models = await discoverModels();
 console.log(`   endpoint lists ${models.length} free models (all served): ${models.map(m => m.id).join(", ")}`);
@@ -83,7 +82,6 @@ check(
   models.every(m => /(^(opencode\/)?.*-free$)|(^(opencode\/)?big-pickle$)/i.test(m.id)),
 );
 
-// ---------------------------------------------------------------- test 2
 const nonReasoning = models.find(m => !m.reasoning) ?? models[0];
 console.log(`\n== 2. Plain chat via native engine (${nonReasoning.id}) ==`);
 {
@@ -96,9 +94,8 @@ console.log(`\n== 2. Plain chat via native engine (${nonReasoning.id}) ==`);
   check("usage reported", (final?.usage?.output ?? 0) > 0, JSON.stringify(final?.usage));
 }
 
-// ---------------------------------------------------------------- test 3
-// Prefer reasoning models confirmed alive on the free tier (deepseek's free
-// promotion ended server-side; the API still lists it but returns 401).
+// Prefer reasoning models confirmed alive on the free tier: deepseek is still
+// listed but its free promotion ended server-side and returns 401.
 const reasoner =
   models.find(m => m.reasoning && m.id.includes("hy3")) ??
   models.find(m => m.reasoning && m.thinkingLevelMap?.low);
@@ -117,7 +114,6 @@ if (reasoner) {
   console.log("\n== 3. Skipped: no reasoning model with low effort in discovery ==");
 }
 
-// ---------------------------------------------------------------- test 4
 const toolModel = models.find(m => !m.reasoning) ?? models[0];
 console.log(`\n== 4. Native tool calling (${toolModel.id}) ==`);
 {
@@ -162,6 +158,5 @@ console.log(`\n== 4. Native tool calling (${toolModel.id}) ==`);
   }
 }
 
-// ---------------------------------------------------------------- summary
 console.log(`\n${failures === 0 ? "ALL REAL-SCENARIO CHECKS PASSED" : `${failures} CHECK(S) FAILED`}`);
 process.exit(failures === 0 ? 0 : 1);
