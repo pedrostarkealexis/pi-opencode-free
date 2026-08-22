@@ -4,17 +4,26 @@ import { discoverModels, filterFreeModels, FALLBACK_MODELS } from "./discovery.j
 
 test("filterFreeModels filters free models and applies fallback metadata", () => {
   const input = [
-    { id: "deepseek-v4-flash-free", name: "DeepSeek v4 Flash" },
+    { id: "hy3-free", name: "Hy3" },
     { id: "gpt-5.6-sol", name: "Paid Model" },
     { id: "big-pickle", name: "Big Pickle" },
   ];
   const result = filterFreeModels(input);
   assert.deepEqual(result.map(m => m.id), [
-    "opencode/deepseek-v4-flash-free",
+    "opencode/hy3-free",
     "opencode/big-pickle",
   ]);
   assert.equal(result[0].reasoning, true);
+  assert.equal(result[0].contextWindow, 256_000);
   assert.equal(result[1].reasoning, false);
+});
+
+test("fallback catalog excludes models whose free promotion ended", () => {
+  const ids = FALLBACK_MODELS.map(m => m.id);
+  assert.ok(!ids.includes("opencode/deepseek-v4-flash-free"), "deepseek free promotion ended");
+  assert.ok(!ids.includes("opencode/muse-spark-1.2-contributor-free"), "muse-spark upstream is broken");
+  assert.ok(ids.includes("opencode/hy3-free"));
+  assert.ok(ids.length > 0);
 });
 
 test("discoverModels returns fallback models when zen fetch fails", async () => {
@@ -23,13 +32,17 @@ test("discoverModels returns fallback models when zen fetch fails", async () => 
   assert.deepEqual(models, FALLBACK_MODELS);
 });
 
-test("discoverModels parses live zen models endpoint", async () => {
-  const fakeZen = {
+test("discoverModels serves every free model listed by the endpoint", async () => {
+  const zenResponse = {
     ok: true,
-    json: async () => ({ data: [{ id: "deepseek-v4-flash-free" }] }),
+    json: async () => ({ data: [{ id: "hy3-free" }, { id: "deepseek-v4-flash-free" }, { id: "gpt-5.6-sol" }] }),
   };
-  const fetchFn = (async () => fakeZen) as unknown as typeof fetch;
+  const fetchFn = (async () => zenResponse) as unknown as typeof fetch;
+
   const models = await discoverModels({ fetchFn });
-  assert.equal(models.length, 1);
-  assert.equal(models[0].id, "opencode/deepseek-v4-flash-free");
+  // The catalog mirrors the endpoint's free list — no health filtering.
+  assert.deepEqual(models.map(m => m.id), [
+    "opencode/hy3-free",
+    "opencode/deepseek-v4-flash-free",
+  ]);
 });

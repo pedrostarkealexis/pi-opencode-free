@@ -44,12 +44,11 @@ function humanizeName(id: string): string {
 
 /**
  * Offline fallback metadata mirroring the known Zen free tier, keyed by base
- * model id. Used when the live endpoint cannot be reached or a model has no
- * known limits.
+ * model id. Only models verified alive on the free tier are listed; models
+ * whose free promotion ended (e.g. deepseek-v4-flash) or whose upstream is
+ * broken (muse-spark) are excluded entirely.
  */
 const FALLBACK_META: Record<string, ModelMeta> = {
-  "deepseek-v4-flash": { reasoning: true, reasoning_options: [{ type: "toggle" }, { type: "effort", values: ["low", "high", "max"] }], limit: { context: 1_000_000, output: 393_216 } },
-  "muse-spark-1.2-contributor": { reasoning: true, reasoning_options: [{ type: "effort", values: ["minimal", "low", "medium", "high", "xhigh"] }], limit: { context: 1_048_576, output: 131_072 } },
   "mimo-v2.5": { reasoning: true, reasoning_options: [{ type: "toggle" }], limit: { context: 1_048_576, output: 131_072 } },
   "hy3": { reasoning: true, reasoning_options: [{ type: "toggle" }, { type: "effort", values: ["low", "medium", "high"] }], limit: { context: 256_000, output: 64_000 } },
   "nemotron-3-ultra": { reasoning: true, reasoning_options: [{ type: "toggle" }], limit: { context: 131_072, output: 32_000 } },

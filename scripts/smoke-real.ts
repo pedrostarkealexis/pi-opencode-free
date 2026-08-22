@@ -76,7 +76,7 @@ function check(label: string, ok: boolean, detail = "") {
 // ---------------------------------------------------------------- test 1
 console.log("== 1. Live model discovery from OpenCode Zen ==");
 const models = await discoverModels();
-console.log(`   discovered ${models.length} free models: ${models.map(m => m.id).join(", ")}`);
+console.log(`   endpoint lists ${models.length} free models (all served): ${models.map(m => m.id).join(", ")}`);
 check("discovery returns free models", models.length > 0);
 check(
   "all discovered ids match the free regex",
@@ -101,7 +101,6 @@ console.log(`\n== 2. Plain chat via native engine (${nonReasoning.id}) ==`);
 // promotion ended server-side; the API still lists it but returns 401).
 const reasoner =
   models.find(m => m.reasoning && m.id.includes("hy3")) ??
-  models.find(m => m.reasoning && m.id.includes("nemotron-3-ultra")) ??
   models.find(m => m.reasoning && m.thinkingLevelMap?.low);
 if (reasoner) {
   console.log(`\n== 3. Reasoning stream via native engine (${reasoner.id}, level=low) ==`);

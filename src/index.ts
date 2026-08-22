@@ -61,7 +61,7 @@ export default async function opencodeDirectExtension(pi: ExtensionAPI): Promise
     description: "Sync latest free models list from OpenCode Zen",
     handler: async (_args: string, ctx: any) => {
       const refreshed = await discoverModels();
-      ctx.ui.notify(`opencode-direct: synchronized ${refreshed.length} models.`, "info");
+      ctx.ui.notify(`opencode-direct: synchronized ${refreshed.length} free models.`, "info");
     },
   });
 }
