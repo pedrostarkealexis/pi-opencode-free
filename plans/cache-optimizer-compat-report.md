@@ -11,7 +11,7 @@ Call chain: `sdk.js:180-199` passes `transformHeaders` (which emits `before_prov
 Therefore the shim's `Authorization: null` always wins over anything a header hook sets; hook-added affinity headers (`session_id`, `x-client-request-id`, `x-session-affinity`, when compat opts in) survive and are additive.
 
 Hermetic proof: `/tmp/header-order.test.ts` (not committed) simulating the exact applyAuth→shim composition with an adversarial hook that injects `Authorization: "Bearer x"` → final header is `null`. 1 pass.
-| 2 | Payload rewrite vs Zen compat quirks | PASS (static) | Only ops on `openai-completions`: `prompt_cache_retention` strip + `prompt_cache_key` add. No rename of `max_tokens`, no touch of `reasoning_content`. Runtime tests: Task 3. |
+| 2 | Payload rewrite vs Zen compat quirks | PASS (verified) | Only ops on `openai-completions`: `prompt_cache_retention` strip + `prompt_cache_key` add. No rename of `max_tokens`, no touch of `reasoning_content`. Runtime tests: Task 3. `src/compat.test.ts` (4 tests, all passing) pins: retention-strip preserves `max_tokens`/`reasoning_content`/tool_calls; `prompt_cache_key` injection is spread-additive; no `max_tokens`→`max_completion_tokens` rename; shim's `Authorization:null` beats hook injection. |
 | 3 | Prompt/message mutation | RISK (benign) | `before_agent_start` rewrites system prompt (churn strip / skill compression / reorder). Content-rewriting but prompt-only; does not touch messages or `reasoning_content` replay. |
 | 4 | Usage/cost accounting | PASS (static) | Footer shows token/cache stats from usage records; cost defaults `{input:0,output:0,...}` when unknown — truthful for zero-cost models. |
 | 5 | Live matrix | ? | Task 4 pending |
