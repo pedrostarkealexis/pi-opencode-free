@@ -6,7 +6,7 @@
   "private": true,
   "keywords": ["pi-package"],
   "pi": {
-    "extensions": ["./src/index.ts"]
+    "extensions": ["./index.ts"]
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
