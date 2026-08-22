@@ -47,6 +47,47 @@ test("discoverModels serves every free model listed by the endpoint", async () =
   ]);
 });
 
+test("discoverModels enriches metadata from models.dev before the offline table", async () => {
+  const routes = (url: string | URL | Request) => {
+    if (String(url).includes("models.dev")) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ opencode: { models: {
+          "x-preview-f-free": {
+            reasoning: true,
+            reasoning_options: [{ type: "effort", values: ["low", "high", "max"] }],
+            limit: { context: 1_000_000, output: 131_072 },
+            modalities: { input: ["text", "image"] },
+          },
+        } } }),
+      });
+    }
+    return Promise.resolve({ ok: true, json: async () => ({ data: [{ id: "x-preview-f-free" }] }) });
+  };
+
+  const models = await discoverModels({ fetchFn: routes as unknown as typeof fetch });
+  const x = models.find(m => m.id === "opencode/x-preview-f-free");
+  assert.ok(x, "free model from endpoint must be served");
+  assert.equal(x.contextWindow, 1_000_000); // models.dev truth, not the 128K default
+  assert.equal(x.maxTokens, 131_072);
+  assert.equal(x.reasoning, true);
+  assert.equal(x.thinkingLevelMap?.high, "high"); // explicit effort levels survive
+  assert.equal(x.thinkingLevelMap?.off, null); // no toggle -> off stays hidden
+  assert.deepEqual(x.input, ["text", "image"]); // modality passthrough
+});
+
+test("discoverModels falls back to offline metadata when models.dev is unreachable", async () => {
+  const routes = (url: string | URL | Request) => {
+    if (String(url).includes("models.dev")) return Promise.reject(new Error("Offline"));
+    return Promise.resolve({ ok: true, json: async () => ({ data: [{ id: "hy3-free" }] }) });
+  };
+
+  const models = await discoverModels({ fetchFn: routes as unknown as typeof fetch });
+  const hy3 = models.find(m => m.id === "opencode/hy3-free");
+  assert.ok(hy3);
+  assert.equal(hy3.contextWindow, 256_000); // from FALLBACK_META
+});
+
 test("discoverModels falls back to offline catalog when fetch times out or aborts", async () => {
   const hangingFetch = (_url: string, init?: RequestInit) =>
     new Promise<Response>((_, reject) => {

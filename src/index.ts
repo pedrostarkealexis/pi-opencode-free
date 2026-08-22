@@ -43,7 +43,7 @@ export default async function opencodeDirectExtension(pi: ExtensionAPI): Promise
         name: m.name,
         reasoning: m.reasoning ?? false,
         thinkingLevelMap: m.thinkingLevelMap,
-        input: ["text"] as ("text" | "image")[],
+        input: (m.input?.includes("image") ? ["text", "image"] : ["text"]) as ("text" | "image")[],
         contextWindow: m.contextWindow ?? 128_000,
         maxTokens: m.maxTokens ?? 16_384,
         cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
