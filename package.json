@@ -4,14 +4,18 @@
   "description": "Zero-daemon, pure-passthrough native Pi extension connecting directly to OpenCode Zen API",
   "type": "module",
   "private": true,
+  "keywords": ["pi-package"],
+  "pi": {
+    "extensions": ["./src/index.ts"]
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "bun test src/",
     "test:node": "npm run build && node --test dist/*.test.js"
   },
-  "dependencies": {
-    "@earendil-works/pi-ai": "^0.84.2",
-    "@earendil-works/pi-coding-agent": "^0.84.2"
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*"
   },
   "devDependencies": {
     "typescript": "^5.6.0",
