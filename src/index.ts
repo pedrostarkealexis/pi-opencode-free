@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 // First-class pi-ai subpath export (stable); unlike /compat, this is not a
 // temporary shim scheduled for deletion.

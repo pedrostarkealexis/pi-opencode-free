@@ -43,4 +43,4 @@ bun scripts/smoke-real.ts  # live request against Zen
 
 ## License
 
-[GPL-3.0-or-later](./LICENSE)
+[GPL-3.0-or-later](./LICENSE) — © 2026 pi-opencode-free contributors

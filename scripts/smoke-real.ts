@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 /**
  * Real-scenario smoke test against the live OpenCode Zen API, exercising the
  * extension's exact provider config via Pi's native engine.
