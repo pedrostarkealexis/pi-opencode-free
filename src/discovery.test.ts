@@ -21,7 +21,7 @@ test("filterFreeModels filters free models and applies fallback metadata", () =>
 test("fallback catalog excludes models whose free promotion ended", () => {
   const ids = FALLBACK_MODELS.map(m => m.id);
   assert.ok(!ids.includes("opencode/deepseek-v4-flash-free"), "deepseek free promotion ended");
-  assert.ok(!ids.includes("opencode/muse-spark-1.2-contributor-free"), "muse-spark upstream is broken");
+  assert.ok(ids.includes("opencode/muse-spark-1.2-contributor-free"));
   assert.ok(ids.includes("opencode/hy3-free"));
   assert.ok(ids.length > 0);
 });

@@ -1,11 +1,10 @@
 /**
  * Discovery of free OpenCode Zen models.
  *
- * Free-tier models are discovered live from the OpenCode Zen REST API
- * (`/zen/v1/models`). Display names, reasoning support, thinking-effort
- * levels, and context/output limits come from a small offline fallback table
- * keyed by base model id; anything unknown defaults to non-reasoning with
- * conservative limits.
+ * Free-tier ids come live from the Zen REST API (`/zen/v1/models`). Display
+ * names, reasoning support, and limits come from the models.dev catalog,
+ * falling back to a small offline table; anything unknown defaults to
+ * non-reasoning with conservative limits.
  */
 
 export interface OpenCodeModelInfo {
@@ -33,12 +32,10 @@ const MODELS_DEV_URL = "https://models.dev/api.json";
 const FREE_REGEX = /(^(opencode\/)?.*-free$)|(^(opencode\/)?big-pickle$)/i;
 const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
 
-/** Zen free id without the `opencode/` prefix and `-free` suffix (base model id). */
 function baseModelId(id: string): string {
   return id.startsWith("opencode/") ? id.slice("opencode/".length).replace(/-free$/, "") : id.replace(/-free$/, "");
 }
 
-/** Human-readable display name derived from a Zen free id. */
 function humanizeName(id: string): string {
   const base = id.replace(/-free$/, "").replace(/[_-]+/g, " ");
   return base
@@ -48,10 +45,7 @@ function humanizeName(id: string): string {
 }
 
 /**
- * Offline fallback metadata mirroring the known Zen free tier, keyed by base
- * model id. Only models verified alive on the free tier are listed; models
- * whose free promotion ended (e.g. deepseek-v4-flash) or whose upstream is
- * broken (muse-spark) are excluded entirely.
+ * Offline fallback metadata keyed by base model id.
  */
 const FALLBACK_META: Record<string, ModelMeta> = {
   "mimo-v2.5": { reasoning: true, reasoning_options: [{ type: "toggle" }], limit: { context: 1_048_576, output: 131_072 } },
@@ -59,6 +53,7 @@ const FALLBACK_META: Record<string, ModelMeta> = {
   "nemotron-3-ultra": { reasoning: true, reasoning_options: [{ type: "toggle" }], limit: { context: 131_072, output: 32_000 } },
   "nemotron-3.5-lightning": { reasoning: true, limit: { context: 1_000_000, output: 128_000 } },
   "laguna-s-2.1": { reasoning: false, limit: { context: 262_144, output: 16_384 } },
+  "muse-spark-1.2-contributor": { reasoning: false },
 };
 
 export const FALLBACK_MODELS: OpenCodeModelInfo[] = Object.entries(FALLBACK_META).map(([base, meta]) => ({
@@ -71,10 +66,8 @@ export const FALLBACK_MODELS: OpenCodeModelInfo[] = Object.entries(FALLBACK_META
 }));
 
 /**
- * Builds the pi `thinkingLevelMap` from a model's `reasoning_options`. Only
- * models advertising explicit effort values get an explicit map (plus `off`
- * when a toggle exists); anything else defers to the provider's default
- * mapping so thinking stays controllable.
+ * Builds pi's `thinkingLevelMap` from `reasoning_options`. Models without
+ * explicit effort values get no map, deferring to the provider default.
  */
 function buildThinkingLevelMap(meta: ModelMeta | undefined): Record<string, string | null> | undefined {
   if (!meta?.reasoning) return undefined;
@@ -103,8 +96,7 @@ export function filterFreeModels(
     .map(m => {
       const base = baseModelId(m.id);
       const bare = m.id.startsWith("opencode/") ? m.id.slice("opencode/".length) : m.id;
-      // Live metadata first (models.dev); offline table is the last resort.
-      // models.dev keys keep the `-free` suffix, the offline table does not.
+      // models.dev keys keep the `-free` suffix; the offline table does not.
       const meta = opts?.catalog?.[bare] ?? opts?.catalog?.[base] ?? FALLBACK_META[base];
       return {
         id: m.id.startsWith("opencode/") ? m.id : `opencode/${m.id}`,
@@ -118,11 +110,7 @@ export function filterFreeModels(
     });
 }
 
-/**
- * Fetches the models.dev catalog entries for the `opencode` provider, keyed by
- * base model id. Returns null on any failure so callers can fall back to the
- * offline table without blocking.
- */
+/** Fetches models.dev catalog entries for the `opencode` provider; null on any failure. */
 async function fetchModelsDevCatalog(fetcher: typeof fetch, timeoutMs: number): Promise<Record<string, ModelMeta> | null> {
   try {
     const signal = typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(timeoutMs) : undefined;
@@ -156,8 +144,8 @@ async function fetchModelsDevCatalog(fetcher: typeof fetch, timeoutMs: number): 
 
 export async function discoverModels(opts?: { fetchFn?: typeof fetch; timeoutMs?: number }): Promise<OpenCodeModelInfo[]> {
   const fetcher = opts?.fetchFn ?? fetch;
-  // Strict startup budget: if neither source answers quickly enough, boot
-  // proceeds on the offline catalog instead of blocking extension load.
+  // Strict boot budget: fall back to the offline catalog rather than block
+  // extension load if neither source answers in time.
   const timeoutMs = opts?.timeoutMs ?? 3000;
   try {
     const signal = typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(timeoutMs) : undefined;
