@@ -10,9 +10,10 @@ test("filterFreeModels filters free models with conservative default metadata", 
   ];
   const result = filterFreeModels(input);
   assert.deepEqual(result.map(m => m.id), ["opencode/hy3-free", "opencode/big-pickle"]);
-  assert.equal(result[0].reasoning, false);      // no catalog, no FALLBACK_META
-  assert.equal(result[0].contextWindow, 128_000);
-  assert.equal(result[1].reasoning, false);
+  const [hy3, bigPickle] = result;
+  assert.equal(hy3?.reasoning, false);           // no catalog, no FALLBACK_META
+  assert.equal(hy3?.contextWindow, 128_000);
+  assert.equal(bigPickle?.reasoning, false);
 });
 
 test("discoverModels returns empty list when zen fetch fails", async () => {

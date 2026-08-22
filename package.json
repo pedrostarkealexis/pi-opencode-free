@@ -11,7 +11,7 @@
     "README.md",
     "LICENSE"
   ],
-  "keywords": ["pi-package"],
+  "keywords": ["pi-package", "opencode", "free-models"],
   "pi": {
     "extensions": ["./dist/index.js"]
   },
