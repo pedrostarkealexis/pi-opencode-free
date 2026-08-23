@@ -1,6 +1,6 @@
 {
   "name": "pi-opencode-free",
-  "version": "1.0.1",
+  "version": "0.1.2",
   "description": "Zero-daemon, pure-passthrough native Pi extension connecting directly to OpenCode Zen API",
   "type": "module",
   "license": "GPL-3.0-or-later",

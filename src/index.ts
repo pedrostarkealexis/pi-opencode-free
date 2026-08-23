@@ -16,6 +16,9 @@ const BASE_URL = "https://opencode.ai/zen/v1";
 const OPENCODE_COMPAT = {
   supportsStore: false,
   supportsDeveloperRole: false,
+  // Zen often ends streams without finish_reason; let pi infer stop/toolUse
+  // instead of throwing "Stream ended without finish_reason".
+  supportsFinishReason: false,
   maxTokensField: "max_tokens" as const,
   requiresReasoningContentOnAssistantMessages: true,
 };
