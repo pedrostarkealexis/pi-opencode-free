@@ -67,6 +67,16 @@ test("discoverModels enriches metadata from models.dev before the offline table"
   assert.deepEqual(x.input, ["text", "image"]); // modality passthrough
 });
 
+test("models routed via @ai-sdk/openai speak the Responses API", () => {
+  const result = filterFreeModels([{ id: "muse-spark-1.2-contributor-free" }], {
+    catalog: { "muse-spark-1.2-contributor-free": { provider: { npm: "@ai-sdk/openai" } } },
+  });
+  assert.equal(result[0]?.api, "openai-responses");
+
+  const plain = filterFreeModels([{ id: "hy3-free" }], { catalog: { "hy3-free": {} } });
+  assert.equal(plain[0]?.api, undefined); // zen default: chat completions
+});
+
 test("discoverModels applies conservative defaults when models.dev is unreachable", async () => {
   const routes = (url: string | URL | Request) => {
     if (String(url).includes("models.dev")) return Promise.reject(new Error("Offline"));

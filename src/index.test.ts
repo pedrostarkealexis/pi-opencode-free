@@ -55,23 +55,29 @@ test("cache-only refresh restores persisted snapshot without network", async () 
     } as unknown as ExtensionAPI;
     await opencodeDirectExtension(fakePi);
 
-    const storedModel = {
+    const completionsModel = {
       id: "hy3-free", name: "Hy3 (Free)", api: "openai-completions",
       provider: "opencode-free", baseUrl: "https://opencode.ai/zen/v1",
       reasoning: true, input: ["text"], contextWindow: 256_000, maxTokens: 64_000,
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
       compat: { supportsStore: false, supportsDeveloperRole: false, maxTokensField: "max_tokens" },
     };
+    const responsesModel = {
+      ...completionsModel,
+      id: "muse-spark-1.2-contributor-free", name: "Muse Spark 1.2 Free",
+      api: "openai-responses",
+    };
     const restored = await registeredConfig.refreshModels({
       allowNetwork: false,
       signal: new AbortController().signal,
-      stored: { models: [storedModel] },
+      stored: { models: [completionsModel, responsesModel] },
       publish: async () => true,
     });
-    assert.equal(restored.length, 1);
+    assert.equal(restored.length, 2);
     assert.equal(restored[0].id, "hy3-free");            // stripped back to config shape
     assert.equal(restored[0].contextWindow, 256_000);
-    assert.equal((restored[0] as any).provider, undefined); // api/provider/baseUrl removed
+    assert.equal((restored[0] as any).provider, undefined); // provider/baseUrl removed
+    assert.equal((restored[1] as any).api, "openai-responses"); // per-model API survives restore
   } finally { globalThis.fetch = originalFetch; }
 });
 

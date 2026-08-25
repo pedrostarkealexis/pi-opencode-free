@@ -4,7 +4,7 @@
  * extension's exact provider config via Pi's native engine.
  * Run with: bun scripts/smoke-real.ts
  */
-import { openAICompletionsApi } from "@earendil-works/pi-ai/compat";
+import { openAICompletionsApi, openAIResponsesApi } from "@earendil-works/pi-ai/compat";
 import type {
   AssistantMessageEvent,
   Context,
@@ -12,7 +12,8 @@ import type {
   Tool,
 } from "@earendil-works/pi-ai";
 
-const streamSimple = openAICompletionsApi().streamSimple;
+const completionsStream = openAICompletionsApi().streamSimple;
+const responsesStream = openAIResponsesApi().streamSimple;
 import { discoverModels } from "../src/discovery.js";
 
 const OPENCODE_COMPAT = {
@@ -28,19 +29,20 @@ const HEADERS = {
   "User-Agent": "opencode/0.0.0-dev",
 };
 
-/** Mirrors the streamSimple shim in src/index.ts. */
-function shimStream(model: Model<"openai-completions">, context: Context, options?: any) {
-  return streamSimple(model, context, {
+/** Mirrors the streamSimple shim in src/index.ts (dispatches by model API). */
+function shimStream(model: any, context: Context, options?: any) {
+  const native = model.api === "openai-responses" ? responsesStream : completionsStream;
+  return native(model, context, {
     ...options,
     headers: { ...options?.headers, ...HEADERS, Authorization: null },
   });
 }
 
-function toPiModel(m: Awaited<ReturnType<typeof discoverModels>>[number]): Model<"openai-completions"> {
+function toPiModel(m: Awaited<ReturnType<typeof discoverModels>>[number]): any {
   return {
     id: m.id.replace(/^opencode\//, ""),
     name: m.name,
-    api: "openai-completions",
+    api: m.api ?? "openai-completions",
     provider: "opencode-free",
     baseUrl: "https://opencode.ai/zen/v1",
     reasoning: m.reasoning ?? false,
@@ -159,6 +161,21 @@ console.log(`\n== 4. Native tool calling (${toolModel.id}) ==`);
     }, { maxTokens: 300 });
     check("post-tool answer succeeds", final2?.stopReason === "stop" && /rain|18/i.test(textOf(final2)), `stopReason=${final2?.stopReason} text="${textOf(final2).trim().slice(0, 60)}"`);
   }
+}
+
+// Models routed via @ai-sdk/openai (e.g. muse-spark) only answer on Zen's
+// Responses endpoint — exercises pi's native openai-responses engine.
+const responsesModel = models.find(m => m.api === "openai-responses");
+if (responsesModel) {
+  console.log(`\n== 5. Responses-API model via native engine (${responsesModel.id}) ==`);
+  const { final } = await run(toPiModel(responsesModel), {
+    systemPrompt: "You are terse.",
+    messages: [{ role: "user", content: "Reply with exactly: RESPONSES_OK", timestamp: Date.now() }],
+  }, { maxTokens: 200 });
+  check("responses completion succeeds", final?.stopReason === "stop", `stopReason=${final?.stopReason}`);
+  check("responses answer present", /RESPONSES_OK/i.test(textOf(final)), `"${textOf(final).trim().slice(0, 60)}"`);
+} else {
+  console.log("\n== 5. Skipped: no @ai-sdk/openai-routed model in discovery ==");
 }
 
 console.log(`\n${failures === 0 ? "ALL REAL-SCENARIO CHECKS PASSED" : `${failures} CHECK(S) FAILED`}`);

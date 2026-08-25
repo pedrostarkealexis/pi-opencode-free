@@ -18,6 +18,9 @@ export interface OpenCodeModelInfo {
   thinkingLevelMap?: Record<string, string | null>;
   /** Input modalities advertised by models.dev (subset relevant to pi). */
   input?: string[];
+  /** Set when models.dev routes the model via @ai-sdk/openai (Responses API);
+   * absent means the zen default chat/completions path. */
+  api?: "openai-responses";
 }
 
 interface ModelMeta {
@@ -26,6 +29,7 @@ interface ModelMeta {
   reasoning_options?: Array<{ type: string; values?: string[] }>;
   limit?: { context?: number; output?: number };
   input?: string[];
+  provider?: { npm?: string };
 }
 
 const ZEN_MODELS_URL = "https://opencode.ai/zen/v1/models";
@@ -85,6 +89,7 @@ export function filterFreeModels(
         maxTokens: meta?.limit?.output ?? 16_384,
         thinkingLevelMap: buildThinkingLevelMap(meta),
         input: meta?.input,
+        api: meta?.provider?.npm === "@ai-sdk/openai" ? "openai-responses" : undefined,
       };
     });
 }
@@ -105,6 +110,7 @@ async function fetchModelsDevCatalog(fetcher: typeof fetch, signal?: AbortSignal
         reasoning_options?: Array<{ type: string; values?: string[] }>;
         limit?: { context?: number; output?: number };
         modalities?: { input?: string[] };
+        provider?: { npm?: string };
       };
       catalog[id] = {
         name: m.name,
@@ -112,6 +118,7 @@ async function fetchModelsDevCatalog(fetcher: typeof fetch, signal?: AbortSignal
         reasoning_options: m.reasoning_options,
         limit: m.limit,
         input: m.modalities?.input,
+        provider: m.provider,
       };
     }
     return Object.keys(catalog).length > 0 ? catalog : null;

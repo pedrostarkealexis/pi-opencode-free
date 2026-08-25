@@ -3,10 +3,11 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 // pi's extension loader aliases the pi-ai root to the /compat entrypoint and
 // only whitelists exact subpaths (/compat, /oauth, /providers/all), so deeper
 // subpath imports like .../api/openai-completions fail to resolve at load time.
-import { openAICompletionsApi } from "@earendil-works/pi-ai/compat";
+import { openAICompletionsApi, openAIResponsesApi } from "@earendil-works/pi-ai/compat";
 import { discoverModels, type OpenCodeModelInfo } from "./discovery.js";
 
 const nativeOpenAICompletionsStream = openAICompletionsApi().streamSimple;
+const nativeOpenAIResponsesStream = openAIResponsesApi().streamSimple;
 
 const PROVIDER_ID = "opencode-free";
 const BASE_URL = "https://opencode.ai/zen/v1";
@@ -28,6 +29,9 @@ function toProviderModel(m: OpenCodeModelInfo) {
   return {
     id: m.id.replace(/^opencode\//, ""),
     name: m.name,
+    // Per-model API override: models routed via @ai-sdk/openai speak the
+    // Responses API (e.g. muse-spark), everything else uses chat completions.
+    api: m.api ?? "openai-completions",
     reasoning: m.reasoning ?? false,
     thinkingLevelMap: m.thinkingLevelMap,
     input: (m.input?.includes("image") ? ["text", "image"] : ["text"]) as ("text" | "image")[],
@@ -39,11 +43,11 @@ function toProviderModel(m: OpenCodeModelInfo) {
 }
 
 function toStoredModel(config: ReturnType<typeof toProviderModel>) {
-  return { ...config, api: "openai-completions" as const, provider: PROVIDER_ID, baseUrl: BASE_URL };
+  return { ...config, provider: PROVIDER_ID, baseUrl: BASE_URL };
 }
 
-function fromStoredModel<M extends { api?: unknown; provider?: unknown; baseUrl?: unknown }>(m: M) {
-  const { api: _api, provider: _provider, baseUrl: _baseUrl, ...config } = m;
+function fromStoredModel<M extends { provider?: unknown; baseUrl?: unknown }>(m: M) {
+  const { provider: _provider, baseUrl: _baseUrl, ...config } = m;
   return config as unknown as ReturnType<typeof toProviderModel>;
 }
 
@@ -67,7 +71,7 @@ export default function opencodeDirectExtension(pi: ExtensionAPI): void {
     async refreshModels(ctx) {
       if (!ctx.allowNetwork) {
         return ctx.stored?.models
-          .filter(m => m.provider === PROVIDER_ID && m.api === "openai-completions")
+          .filter(m => m.provider === PROVIDER_ID && (m.api === "openai-completions" || m.api === "openai-responses"))
           .map(fromStoredModel) ?? [];
       }
       if (ctx.signal.aborted) return [];
@@ -77,13 +81,20 @@ export default function opencodeDirectExtension(pi: ExtensionAPI): void {
       await ctx.publish({ persist: { models: configs.map(toStoredModel), checkedAt: Date.now() } });
       return configs;
     },
-    // Keyless shim: Zen's free tier rejects every Bearer token with 401,
-    // and `Authorization: null` is the OpenAI SDK's supported omission.
+    // Keyless shim over pi's native engines, dispatched by model API:
+    // Zen's free tier rejects every Bearer token with 401, and
+    // `Authorization: null` is the OpenAI SDK's supported omission.
     // Streaming, tools, reasoning, and cost handling stay fully native.
-    streamSimple: (model, context, options) =>
-      nativeOpenAICompletionsStream(model as Parameters<typeof nativeOpenAICompletionsStream>[0], context, {
+    streamSimple: (model, context, options) => {
+      const api = (model as { api?: string }).api;
+      const native =
+        api === "openai-responses"
+          ? (nativeOpenAIResponsesStream as typeof nativeOpenAICompletionsStream)
+          : nativeOpenAICompletionsStream;
+      return native(model as Parameters<typeof nativeOpenAICompletionsStream>[0], context, {
         ...options,
         headers: { ...options?.headers, Authorization: null },
-      }),
+      });
+    },
   });
 }
