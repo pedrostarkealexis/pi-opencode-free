@@ -66,6 +66,14 @@ export default function opencodeDirectExtension(pi: ExtensionAPI): void {
       "x-opencode-client": "cli",
       "x-opencode-project": "global",
       "User-Agent": "opencode/0.0.0-dev",
+      // Zen's free tier rejects every Bearer token with 401. Provider-level
+      // headers reach the OpenAI SDK's defaultHeaders even on pi's native
+      // request path (ModelsRuntime.prepareRequest → composeModelProvider),
+      // and `Authorization: null` is the SDK's supported way to omit the
+      // header entirely. This covers Responses-API models (e.g. muse-spark),
+      // which bypass the streamSimple shim below because pi only routes
+      // through it when model.api === provider api ("openai-completions").
+      Authorization: null as unknown as string,
     },
     models: [],
     async refreshModels(ctx) {
