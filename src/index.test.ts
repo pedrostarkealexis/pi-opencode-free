@@ -28,6 +28,48 @@ test("registers provider once with empty initial models and no boot fetch", asyn
     assert.equal(typeof registeredConfig.refreshModels, "function");
     // Thin keyless shim over the native engine.
     assert.equal(typeof registeredConfig.streamSimple, "function");
+    // Regression: no header value may be null. Pi runs every provider header
+    // through its config-value resolver (String#startsWith), so a null throws
+    // "Cannot read properties of null (reading 'startsWith')" on every auth
+    // check and refreshModels silently falls back to the cached snapshot.
+    for (const [k, v] of Object.entries(registeredConfig.headers)) {
+      assert.equal(typeof v, "string", `header ${k} must be a string, got ${v}`);
+    }
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("Responses-API models register under openai-completions with zenApi set", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (url: string) => {
+    if (String(url).includes("models.dev")) {
+      return new Response(JSON.stringify({
+        opencode: { models: { "muse-spark": { provider: { npm: "@ai-sdk/openai" } } } },
+      }), { status: 200 });
+    }
+    return new Response(JSON.stringify({ data: [
+      { id: "opencode/hy3-free", name: "Hy3" },
+      { id: "opencode/muse-spark-free", name: "Muse Spark" },
+    ] }), { status: 200 });
+  }) as unknown as typeof fetch;
+  try {
+    let registeredConfig: any = null;
+    const fakePi = {
+      registerProvider(_id: string, config: any) { registeredConfig = config; },
+    } as unknown as ExtensionAPI;
+    await opencodeDirectExtension(fakePi);
+    let published: any = null;
+    const models = await registeredConfig.refreshModels({
+      allowNetwork: true,
+      signal: new AbortController().signal,
+      publish: async (p: any) => { published = p; return true; },
+    });
+    // Everything routes through the keyless shim.
+    for (const m of models) assert.equal(m.api, "openai-completions");
+    const muse = models.find((m: any) => m.id.startsWith("muse-spark"));
+    assert.equal(muse.zenApi, "openai-responses");
+    assert.equal(models.find((m: any) => m.id === "hy3-free").zenApi, "openai-completions");
+    // zenApi survives the persisted snapshot.
+    assert.equal(published.persist.models.find((m: any) => m.id.startsWith("muse-spark")).zenApi, "openai-responses");
   } finally { globalThis.fetch = originalFetch; }
 });
 

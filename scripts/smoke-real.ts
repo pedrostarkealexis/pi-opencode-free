@@ -29,9 +29,10 @@ const HEADERS = {
   "User-Agent": "opencode/0.0.0-dev",
 };
 
-/** Mirrors the streamSimple shim in src/index.ts (dispatches by model API). */
+/** Mirrors the streamSimple shim in src/index.ts (dispatches by wire protocol). */
 function shimStream(model: any, context: Context, options?: any) {
-  const native = model.api === "openai-responses" ? responsesStream : completionsStream;
+  const wire = model.zenApi ?? model.api;
+  const native = wire === "openai-responses" ? responsesStream : completionsStream;
   return native(model, context, {
     ...options,
     headers: { ...options?.headers, ...HEADERS, Authorization: null },
@@ -42,7 +43,9 @@ function toPiModel(m: Awaited<ReturnType<typeof discoverModels>>[number]): any {
   return {
     id: m.id.replace(/^opencode\//, ""),
     name: m.name,
-    api: m.api ?? "openai-completions",
+    // Every model registers under the provider api; real protocol in zenApi.
+    api: "openai-completions",
+    zenApi: m.api ?? "openai-completions",
     provider: "opencode-free",
     baseUrl: "https://opencode.ai/zen/v1",
     reasoning: m.reasoning ?? false,

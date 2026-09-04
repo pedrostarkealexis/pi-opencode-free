@@ -29,9 +29,14 @@ function toProviderModel(m: OpenCodeModelInfo) {
   return {
     id: m.id.replace(/^opencode\//, ""),
     name: m.name,
-    // Per-model API override: models routed via @ai-sdk/openai speak the
-    // Responses API (e.g. muse-spark), everything else uses chat completions.
-    api: m.api ?? "openai-completions",
+    // Every model is registered under the provider api ("openai-completions")
+    // so pi always routes through the keyless streamSimple shim below. Models
+    // that actually speak the Responses API (e.g. muse-spark, routed via
+    // @ai-sdk/openai) carry their real wire protocol in `zenApi`; the shim
+    // dispatches on it. Registering them as "openai-responses" instead would
+    // make pi bypass the shim and send a rejected Bearer token.
+    api: "openai-completions" as const,
+    zenApi: m.api ?? "openai-completions",
     reasoning: m.reasoning ?? false,
     thinkingLevelMap: m.thinkingLevelMap,
     input: (m.input?.includes("image") ? ["text", "image"] : ["text"]) as ("text" | "image")[],
@@ -66,14 +71,13 @@ export default function opencodeDirectExtension(pi: ExtensionAPI): void {
       "x-opencode-client": "cli",
       "x-opencode-project": "global",
       "User-Agent": "opencode/0.0.0-dev",
-      // Zen's free tier rejects every Bearer token with 401. Provider-level
-      // headers reach the OpenAI SDK's defaultHeaders even on pi's native
-      // request path (ModelsRuntime.prepareRequest → composeModelProvider),
-      // and `Authorization: null` is the SDK's supported way to omit the
-      // header entirely. This covers Responses-API models (e.g. muse-spark),
-      // which bypass the streamSimple shim below because pi only routes
-      // through it when model.api === provider api ("openai-completions").
-      Authorization: null as unknown as string,
+      // NOTE: do not put `Authorization: null` here. Pi runs every provider
+      // header value through its config-value resolver (parseConfigValue
+      // reference → String.prototype.startsWith), which throws
+      // "Cannot read properties of null (reading 'startsWith')" during the
+      // auth check that precedes every refreshModels call — the provider then
+      // fails to refresh and falls back to the cached snapshot. Keyless
+      // requests are handled per-request in the streamSimple shim instead.
     },
     models: [],
     async refreshModels(ctx) {
@@ -94,9 +98,13 @@ export default function opencodeDirectExtension(pi: ExtensionAPI): void {
     // `Authorization: null` is the OpenAI SDK's supported omission.
     // Streaming, tools, reasoning, and cost handling stay fully native.
     streamSimple: (model, context, options) => {
-      const api = (model as { api?: string }).api;
+      // Registered api is always "openai-completions"; the real wire protocol
+      // lives in `zenApi` (see toProviderModel). Fall back to `api` so
+      // snapshots persisted by older versions still dispatch correctly.
+      const wire = (model as { zenApi?: string; api?: string }).zenApi
+        ?? (model as { api?: string }).api;
       const native =
-        api === "openai-responses"
+        wire === "openai-responses"
           ? (nativeOpenAIResponsesStream as typeof nativeOpenAICompletionsStream)
           : nativeOpenAICompletionsStream;
       return native(model as Parameters<typeof nativeOpenAICompletionsStream>[0], context, {
