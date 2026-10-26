@@ -129,9 +129,8 @@ async function fetchModelsDevCatalog(fetcher: typeof fetch, signal?: AbortSignal
 
 export async function discoverModels(opts?: { fetchFn?: typeof fetch; timeoutMs?: number; signal?: AbortSignal }): Promise<OpenCodeModelInfo[]> {
   const fetcher = opts?.fetchFn ?? fetch;
-  // Strict boot budget: return nothing rather than block extension load if
-  // neither source answers in time.
-  const timeoutMs = opts?.timeoutMs ?? 3000;
+  // Boot budget: allow enough time to fetch models.dev catalog without blocking indefinitely.
+  const timeoutMs = opts?.timeoutMs ?? 10000;
   try {
     // Combine the caller-provided signal (e.g. refreshModels cancellation)
     // with our own deadline so either one aborts discovery.
